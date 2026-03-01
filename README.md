@@ -147,3 +147,26 @@ Near-term MVP target:
 ## One-Line Pitch
 
 DomBot turns every deploy into a versioned agent interface and a regression signal for agent reliability.
+
+## Trace-First POC
+
+This repo includes a minimal proof-of-concept for the trace memory loop in `poc/`.
+
+Build task memory nodes from sample traces:
+
+```bash
+python3 poc/trace_poc.py build \
+  --traces poc/sample_traces.json \
+  --out poc/task_nodes.json
+```
+
+Query a suggested plan for a new task:
+
+```bash
+python3 poc/trace_poc.py suggest \
+  --nodes poc/task_nodes.json \
+  --domain walmart.com \
+  --task "purchase a mac laptop from walmart"
+```
+
+The output shows the best-matching prior task and its learned `optimal_actions`.

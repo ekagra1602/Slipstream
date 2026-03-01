@@ -1,0 +1,66 @@
+[
+  {
+    "trace_id": "tr_wm_001",
+    "task": "buy a macbook on walmart",
+    "domain": "walmart.com",
+    "success": true,
+    "step_count": 6,
+    "latency_ms": 14120,
+    "steps": [
+      {"action": "type", "target": "search_input", "value": "macbook"},
+      {"action": "click", "target": "first_electronics_result"},
+      {"action": "click", "target": "add_to_cart"},
+      {"action": "click", "target": "view_cart"},
+      {"action": "click", "target": "checkout_cta"},
+      {"action": "type", "target": "shipping_email", "value": "user@example.com"}
+    ]
+  },
+  {
+    "trace_id": "tr_wm_002",
+    "task": "buy a macbook on walmart",
+    "domain": "walmart.com",
+    "success": true,
+    "step_count": 6,
+    "latency_ms": 12880,
+    "steps": [
+      {"action": "type", "target": "search_input", "value": "macbook"},
+      {"action": "click", "target": "first_electronics_result"},
+      {"action": "click", "target": "add_to_cart"},
+      {"action": "click", "target": "view_cart"},
+      {"action": "click", "target": "checkout_cta"},
+      {"action": "type", "target": "shipping_email", "value": "user@example.com"}
+    ]
+  },
+  {
+    "trace_id": "tr_wm_003",
+    "task": "buy a macbook on walmart",
+    "domain": "walmart.com",
+    "success": false,
+    "step_count": 7,
+    "latency_ms": 18420,
+    "steps": [
+      {"action": "type", "target": "search_input", "value": "mac"},
+      {"action": "click", "target": "food_result"},
+      {"action": "click", "target": "back_button"},
+      {"action": "type", "target": "search_input", "value": "macbook"},
+      {"action": "click", "target": "first_electronics_result"},
+      {"action": "click", "target": "add_to_cart"},
+      {"action": "click", "target": "checkout_cta"}
+    ]
+  },
+  {
+    "trace_id": "tr_amz_001",
+    "task": "buy a usb c charger on amazon",
+    "domain": "amazon.com",
+    "success": true,
+    "step_count": 5,
+    "latency_ms": 10210,
+    "steps": [
+      {"action": "type", "target": "search_input", "value": "usb c charger"},
+      {"action": "click", "target": "first_result"},
+      {"action": "click", "target": "add_to_cart"},
+      {"action": "click", "target": "go_to_cart"},
+      {"action": "click", "target": "checkout_cta"}
+    ]
+  }
+]

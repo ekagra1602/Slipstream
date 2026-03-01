@@ -1,0 +1,51 @@
+[
+  {
+    "_id": "node_walmart_com_248742",
+    "domain": "walmart.com",
+    "task": "buy a macbook on walmart",
+    "task_vector": {
+      "buy": 1,
+      "a": 1,
+      "macbook": 1,
+      "on": 1,
+      "walmart": 1
+    },
+    "run_count": 2,
+    "avg_step_count": 6.0,
+    "avg_latency_ms": 13500.0,
+    "confidence": 0.76,
+    "optimal_actions": [
+      "type:search_input:macbook",
+      "click:first_electronics_result",
+      "click:add_to_cart",
+      "click:view_cart",
+      "click:checkout_cta",
+      "type:shipping_email:user@example.com"
+    ]
+  },
+  {
+    "_id": "node_amazon_com_755698",
+    "domain": "amazon.com",
+    "task": "buy a usb c charger on amazon",
+    "task_vector": {
+      "buy": 1,
+      "a": 1,
+      "usb": 1,
+      "c": 1,
+      "charger": 1,
+      "on": 1,
+      "amazon": 1
+    },
+    "run_count": 1,
+    "avg_step_count": 5.0,
+    "avg_latency_ms": 10210.0,
+    "confidence": 0.68,
+    "optimal_actions": [
+      "type:search_input:usb c charger",
+      "click:first_result",
+      "click:add_to_cart",
+      "click:go_to_cart",
+      "click:checkout_cta"
+    ]
+  }
+]
