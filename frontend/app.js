@@ -3200,18 +3200,14 @@
   async function loadGraph() {
     graphData = await fetchGraphPayload();
     computeDerivedMetrics();
-    let initOk = false;
+
     try {
       initGraph();
-      initOk = true;
     } catch (err) {
-      console.error("Graph init failed:", err);
+      console.error("Graph init error (non-fatal, continuing):", err);
     }
-    if (!initOk) {
-      throw new Error("Graph init failed");
-    }
-    updateStats();
-    await loadHistory();
+    try { updateStats(); } catch (e) { console.warn("Stats update skipped:", e); }
+    try { await loadHistory(); } catch (e) { console.warn("History load skipped:", e); }
   }
 
   async function loadHistory() {
@@ -3314,12 +3310,12 @@
       centerForce.x(0).y(0).z(0);
     }
 
-    setupBloom();
-    ensureEventBurstLayer();
-    setupInputListeners();
+    try { setupBloom(); } catch (e) { console.warn("Bloom disabled:", e.message); }
+    try { ensureEventBurstLayer(); } catch (e) { console.warn("Event burst layer skipped:", e.message); }
+    try { setupInputListeners(); } catch (e) { console.warn("Input listeners skipped:", e.message); }
 
-    scheduleAmbientRebuild(1200);
-    scheduleLabelUpdate();
+    try { scheduleAmbientRebuild(1200); } catch (e) { console.warn("Ambient rebuild skipped:", e.message); }
+    try { scheduleLabelUpdate(); } catch (e) { console.warn("Label update skipped:", e.message); }
     startFrameLoop();
 
     // Run composite visibility after the graph has entered its first render frame.

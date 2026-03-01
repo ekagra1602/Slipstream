@@ -128,7 +128,6 @@ body {
 }
 
 /* Keep graph/UI paused until the intro CTA starts the scene. */
-body.scene-paused #graph,
 body.scene-paused #noise-overlay,
 body.scene-paused #stats-panel,
 body.scene-paused #detail-panel,
@@ -139,6 +138,10 @@ body.scene-paused #ask-bar,
 body.scene-paused #chat-backdrop,
 body.scene-paused #chat-modal,
 body.scene-paused #warp-canvas {
+  opacity: 0;
+  pointer-events: none;
+}
+body.scene-paused #graph {
   opacity: 0;
   pointer-events: none;
 }
