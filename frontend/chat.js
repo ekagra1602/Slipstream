@@ -32,11 +32,6 @@
     return;
   }
 
-  if (!demoMockEnabled) {
-    askBar.style.display = "none";
-    return;
-  }
-
   const ctx = warpCanvas.getContext("2d");
   if (!ctx) return;
 

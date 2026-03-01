@@ -101,7 +101,7 @@ body::after {
 /* ---- Stats overlay (top-left) ---- */
 #stats-panel {
   position: fixed;
-  top: 24px;
+  top: 72px;
   left: 24px;
   padding: 18px 22px;
   display: flex;
@@ -136,7 +136,7 @@ body::after {
 /* ---- Detail panel (right) ---- */
 #detail-panel {
   position: fixed;
-  top: 24px;
+  top: 72px;
   right: -400px;
   bottom: 80px;
   width: 360px;
