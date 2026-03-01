@@ -306,8 +306,14 @@
   }
 
   const RUNTIME_PARAMS = new window.URLSearchParams(window.location.search);
+  const DEMO_QUERY_VALUE = RUNTIME_PARAMS.get("demoMock");
+  const IS_LOCAL_HOST =
+    window.location.hostname === "127.0.0.1" ||
+    window.location.hostname === "localhost";
   const RUNTIME_FLAGS = {
-    demoMock: RUNTIME_PARAMS.get("demoMock") === "1",
+    demoMock:
+      DEMO_QUERY_VALUE === "1" ||
+      (DEMO_QUERY_VALUE === null && !IS_LOCAL_HOST),
   };
   const INTRO_GATE_CONFIG = {
     fadeOutMs: 620,
