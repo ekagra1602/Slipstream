@@ -175,7 +175,7 @@ def _classify_failure(output: str) -> str:
 
 def label_step(idx: int, span: dict) -> NormalizedStep:
     """Convert a raw Laminar TOOL span into a NormalizedStep."""
-    success = span.get("status") == "ok"
+    success = span.get("status") in ("ok", "success")
     failure_reason = None if success else _classify_failure(span.get("output", ""))
 
     raw_input = span.get("input", "{}")
@@ -185,11 +185,34 @@ def label_step(idx: int, span: dict) -> NormalizedStep:
         parsed = {}
 
     params = parsed.get("params", {})
+    action = span.get("name", "unknown")
+
+    # Action-aware target extraction
+    if action == "navigate":
+        target = params.get("url", "unknown")
+    elif action in ("input", "click"):
+        target = params.get("selector") or str(params.get("index", "unknown"))
+    elif action == "send_keys":
+        target = params.get("keys", "unknown")
+    elif action == "done":
+        raw_out = span.get("output", "{}")
+        try:
+            out = json.loads(raw_out) if isinstance(raw_out, str) else raw_out
+            target = (out.get("long_term_memory") or out.get("extracted_content") or "")[:80]
+        except Exception:
+            target = "unknown"
+    else:
+        target = (
+            params.get("selector")
+            or params.get("task_description")
+            or params.get("index")
+            or "unknown"
+        )
 
     return NormalizedStep(
         step_idx=idx,
-        action_type=span.get("name", "unknown"),
-        target=params.get("selector", params.get("index", "unknown")),
+        action_type=action,
+        target=str(target) if target is not None else "unknown",
         value=params.get("value") or params.get("text"),
         url=params.get("url", ""),
         latency_ms=int(float(span.get("duration", 0)) * 1000),

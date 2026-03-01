@@ -1,0 +1,342 @@
+[
+  {
+    "label": "run_03",
+    "trace_id": "f9fcd286-29ea-b060-4d78-31d4d49f7a52",
+    "status": "success",
+    "start_time": "2026-03-01 05:31:55.473881000",
+    "end_time": "2026-03-01 05:32:29.755083000",
+    "tool_spans": [
+      {
+        "action": "navigate",
+        "status": "success",
+        "latency_ms": 8349,
+        "input": {
+          "action": "navigate",
+          "params": {
+            "url": "https://google.com",
+            "new_tab": false
+          }
+        },
+        "output": {
+          "is_done": false,
+          "success": null,
+          "error": null,
+          "extracted_content": "\ud83d\udd17 Navigated to https://google.com"
+        }
+      },
+      {
+        "action": "dombot_query",
+        "status": "success",
+        "latency_ms": 3,
+        "input": {
+          "action": "dombot_query",
+          "params": {
+            "task_description": "search for DomBot browser automation",
+            "domain": "google.com"
+          }
+        },
+        "output": {
+          "is_done": false,
+          "success": null,
+          "error": null,
+          "extracted_content": "[DomBot] No prior data for this task. Proceed normally \u2014 your actions will be recorded for future runs."
+        }
+      },
+      {
+        "action": "input",
+        "status": "success",
+        "latency_ms": 6365,
+        "input": {
+          "action": "input",
+          "params": {
+            "index": 1,
+            "text": "DomBot browser automation"
+          }
+        },
+        "output": {
+          "is_done": false,
+          "success": null,
+          "error": null,
+          "extracted_content": "Typed 'DomBot browser automation'\n\ud83d\udca1 This is an autocomplete field. Wait for suggestions to appear, then click the correc"
+        }
+      },
+      {
+        "action": "send_keys",
+        "status": "success",
+        "latency_ms": 424,
+        "input": {
+          "action": "send_keys",
+          "params": {
+            "keys": "Enter"
+          }
+        },
+        "output": {
+          "is_done": false,
+          "success": null,
+          "error": null,
+          "extracted_content": "Sent keys: Enter"
+        }
+      },
+      {
+        "action": "dombot_report",
+        "status": "success",
+        "latency_ms": 2,
+        "input": {
+          "action": "dombot_report",
+          "params": {
+            "task_description": "Search for 'DomBot browser automation' on Google",
+            "action_taken": "search",
+            "target_element": "Google Search Input",
+            "success": true,
+            "current_url": "https://www.google.com/search?q=DomBot+browser+automation",
+            "notes": ""
+          }
+        },
+        "output": {
+          "is_done": false,
+          "success": null,
+          "error": null,
+          "extracted_content": "[DomBot] Step recorded."
+        }
+      },
+      {
+        "action": "done",
+        "status": "success",
+        "latency_ms": 1,
+        "input": {
+          "action": "done",
+          "params": {
+            "text": "The first result title for 'DomBot browser automation' on Google is 'NEW Clawdbot AI Browser Agent: Automate ANYTHING?' (a YouTube video by Julian Goldie SEO).",
+            "files_to_display": []
+          }
+        },
+        "output": {
+          "is_done": true,
+          "success": true,
+          "error": null,
+          "extracted_content": "The first result title for 'DomBot browser automation' on Google is 'NEW Clawdbot AI Browser Agent: Automate ANYTHING?' "
+        }
+      }
+    ]
+  },
+  {
+    "label": "run_02",
+    "trace_id": "e78c4aae-b84f-2fea-2d0a-e4271d2c0dd9",
+    "status": "success",
+    "start_time": "2026-03-01 05:30:38.960183000",
+    "end_time": "2026-03-01 05:31:10.769589000",
+    "tool_spans": [
+      {
+        "action": "navigate",
+        "status": "success",
+        "latency_ms": 8354,
+        "input": {
+          "action": "navigate",
+          "params": {
+            "url": "https://google.com",
+            "new_tab": false
+          }
+        },
+        "output": {
+          "is_done": false,
+          "success": null,
+          "error": null,
+          "extracted_content": "\ud83d\udd17 Navigated to https://google.com"
+        }
+      },
+      {
+        "action": "dombot_query",
+        "status": "success",
+        "latency_ms": 2,
+        "input": {
+          "action": "dombot_query",
+          "params": {
+            "task_description": "search for DomBot browser automation and get the first result title",
+            "domain": "google.com"
+          }
+        },
+        "output": {
+          "is_done": false,
+          "success": null,
+          "error": null,
+          "extracted_content": "[DomBot] No prior data for this task. Proceed normally \u2014 your actions will be recorded for future runs."
+        }
+      },
+      {
+        "action": "input",
+        "status": "success",
+        "latency_ms": 6637,
+        "input": {
+          "action": "input",
+          "params": {
+            "index": 1,
+            "text": "DomBot browser automation"
+          }
+        },
+        "output": {
+          "is_done": false,
+          "success": null,
+          "error": null,
+          "extracted_content": "Typed 'DomBot browser automation'\n\ud83d\udca1 This is an autocomplete field. Wait for suggestions to appear, then click the correc"
+        }
+      },
+      {
+        "action": "send_keys",
+        "status": "success",
+        "latency_ms": 448,
+        "input": {
+          "action": "send_keys",
+          "params": {
+            "keys": "Enter"
+          }
+        },
+        "output": {
+          "is_done": false,
+          "success": null,
+          "error": null,
+          "extracted_content": "Sent keys: Enter"
+        }
+      },
+      {
+        "action": "done",
+        "status": "success",
+        "latency_ms": 3,
+        "input": {
+          "action": "done",
+          "params": {
+            "text": "The first result title for 'DomBot browser automation' is 'NEW Clawdbot AI Browser Agent: Automate ANYTHING?' (from the video section) or 'IGDMBot - DM Automation Bot - Chrome Web Store' (from the organic results).",
+            "success": true,
+            "files_to_display": []
+          }
+        },
+        "output": {
+          "is_done": true,
+          "success": true,
+          "error": null,
+          "extracted_content": "The first result title for 'DomBot browser automation' is 'NEW Clawdbot AI Browser Agent: Automate ANYTHING?' (from the "
+        }
+      }
+    ]
+  },
+  {
+    "label": "run_01",
+    "trace_id": "c3899593-b82a-7604-41d6-c78875f39b73",
+    "status": "success",
+    "start_time": "2026-03-01 05:29:32.911065000",
+    "end_time": "2026-03-01 05:30:00.629484000",
+    "tool_spans": [
+      {
+        "action": "navigate",
+        "status": "success",
+        "latency_ms": 992,
+        "input": {
+          "action": "navigate",
+          "params": {
+            "url": "https://google.com",
+            "new_tab": false
+          }
+        },
+        "output": {
+          "is_done": false,
+          "success": null,
+          "error": null,
+          "extracted_content": "\ud83d\udd17 Navigated to https://google.com"
+        }
+      },
+      {
+        "action": "dombot_query",
+        "status": "success",
+        "latency_ms": 2,
+        "input": {
+          "action": "dombot_query",
+          "params": {
+            "task_description": "search for DomBot browser automation and find first result title",
+            "domain": "google.com"
+          }
+        },
+        "output": {
+          "is_done": false,
+          "success": null,
+          "error": null,
+          "extracted_content": "[DomBot] No prior data for this task. Proceed normally \u2014 your actions will be recorded for future runs."
+        }
+      },
+      {
+        "action": "input",
+        "status": "success",
+        "latency_ms": 6325,
+        "input": {
+          "action": "input",
+          "params": {
+            "index": 1,
+            "text": "DomBot browser automation"
+          }
+        },
+        "output": {
+          "is_done": false,
+          "success": null,
+          "error": null,
+          "extracted_content": "Typed 'DomBot browser automation'\n\ud83d\udca1 This is an autocomplete field. Wait for suggestions to appear, then click the correc"
+        }
+      },
+      {
+        "action": "send_keys",
+        "status": "success",
+        "latency_ms": 415,
+        "input": {
+          "action": "send_keys",
+          "params": {
+            "keys": "Enter"
+          }
+        },
+        "output": {
+          "is_done": false,
+          "success": null,
+          "error": null,
+          "extracted_content": "Sent keys: Enter"
+        }
+      },
+      {
+        "action": "dombot_report",
+        "status": "success",
+        "latency_ms": 1,
+        "input": {
+          "action": "dombot_report",
+          "params": {
+            "task_description": "Go to google.com and search for 'DomBot browser automation' and tell me the first result title",
+            "action_taken": "identify first result title",
+            "target_element": "h3 search result title",
+            "success": true,
+            "current_url": "https://www.google.com/search?q=DomBot+browser+automation",
+            "notes": "The first result title found was 'IGDMBot - DM Automation Bot - Chrome Web Store'."
+          }
+        },
+        "output": {
+          "is_done": false,
+          "success": null,
+          "error": null,
+          "extracted_content": "[DomBot] Step recorded."
+        }
+      },
+      {
+        "action": "done",
+        "status": "success",
+        "latency_ms": 1,
+        "input": {
+          "action": "done",
+          "params": {
+            "text": "The first result title for 'DomBot browser automation' on Google is 'IGDMBot - DM Automation Bot - Chrome Web Store'.",
+            "success": true,
+            "files_to_display": []
+          }
+        },
+        "output": {
+          "is_done": true,
+          "success": true,
+          "error": null,
+          "extracted_content": "The first result title for 'DomBot browser automation' on Google is 'IGDMBot - DM Automation Bot - Chrome Web Store'."
+        }
+      }
+    ]
+  }
+]
