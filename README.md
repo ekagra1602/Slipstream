@@ -1,149 +1,198 @@
 # DomBot
 
-DomBot turns browser automation from fragile index-based clicks into a stable, semantic interface for AI agents.
+**A shared learning layer for browser automation agents.**
 
-At a high level, DomBot builds a structured **interaction map** of web pages (nodes, roles, names, selectors, fallbacks) and uses it to make agent actions faster, cheaper, and more resilient across runs.
+DomBot makes browser-use agents faster and more reliable by learning optimal action paths from every run. The first user fumbles through 72 steps. The 1000th user gets a pre-loaded 12-step path straight to the goal.
 
-## Why DomBot
+**Analogy:** Waze for web agents — every run makes the map better for everyone.
 
-Most browser agents rely on screenshots plus accessibility trees and then choose elements by transient indices (for example, "click element 47"). This breaks easily as UIs evolve.
+---
 
-DomBot introduces a stable layer:
+## How It Works
 
-- Named semantic nodes (for example, `checkout_primary_cta`)
-- Ranked selector fallbacks
-- Route-aware and structure-aware caching
-- Graceful degradation to baseline agent behavior
+DomBot registers as a tool inside browser-use. Before the LLM decides what to do, the agent calls DomBot to check if anyone has successfully completed a similar task before. If yes, the optimal path gets injected into the LLM's context. After each step, the agent reports what happened back to DomBot.
 
-Result: agents reason over meaning, not brittle element positions.
-
-## Core Concept
-
-DomBot is designed as **middleware, not a tool command the agent must remember to call**.
-
-It sits between "observe page state" and "send context to LLM":
-
-1. Observe page
-2. Build or fetch NodeMap
-3. Enrich LLM context with semantic nodes
-4. Agent plans action
-5. Executor uses preferred selector, then fallbacks if needed
-
-## What a Node Map Contains (MVP)
-
-Each interaction node includes:
-
-- Stable `node_id` (semantic intent key)
-- Role/tag (`button`, `input`, `link`, etc.)
-- Accessible name/text
-- Preferred selector (`data-testid`, id, role-based)
-- Ranked fallback selectors
-- Context hints (container, nearby text)
-- Allowed actions (`click`, `type`, `select`, ...)
-
-## Browser Agent Integration (browser-use style)
-
-Current loop:
-
-1. Screenshot + accessibility tree
-2. LLM picks element
-3. Executor performs action
-
-With DomBot:
-
-1. Screenshot + accessibility tree
-2. DomBot extracts or fetches NodeMap
-3. LLM receives page context + NodeMap and picks semantic node IDs
-4. Executor resolves selectors (preferred first, fallback next)
-5. Repeat
-
-Example integration shape:
-
-```python
-from browser_use import Agent
-from dombot import DomBot
-
-dombot = DomBot(cache="local")  # or "shared"
-
-agent = Agent(
-    task="complete checkout",
-    llm=llm,
-    browser=browser,
-    observation_middleware=[dombot.enrich],
-)
+```
+browser-use prepares DOM / screenshot / accessibility tree
+    |
+    v
+Agent calls dombot_query("buy macbook on walmart", "walmart.com")
+    |
+    v
+DomBot queries MongoDB (vector search on task embedding)
+    |-- hit  --> returns optimal actions from past successful runs
+    |-- miss --> returns nothing (agent proceeds normally)
+    |
+    v
+LLM decides next action (now informed by past runs)
+    |
+    v
+browser-use executes action
+    |
+    v
+Agent calls dombot_report(action, target, success)
+    |
+    v
+DomBot stores step data in MongoDB
+    |
+    v
+Repeat --> traces compound --> paths converge
 ```
 
-## Caching and Invalidation Strategy
+### Over Time
 
-DomBot uses a structural cache key:
+```
+Run 1:     72 steps, 3 wrong turns, eventually buys Macbook
+Run 100:   45 steps, different user, different mistakes
+Run 500:   optimal path emerges -- 12 steps, straight there
+Run 501:   new user gets the 12-step path pre-loaded. Done.
+```
 
-`(domain, route_pattern, structural_hash(page))`
+---
 
-Where `structural_hash` is derived from interactive structure (roles, labels, relative positions), not volatile content like prices.
+## Integration
 
-- Hash match -> cache hit -> reuse NodeMap
-- Hash miss -> extract fresh map -> cache new entry
+DomBot uses browser-use's `@controller.action` API — no monkey-patching, no subclassing:
 
-Important property: old entries are not force-invalidated; they naturally expire by TTL while exact-match lookups prevent stale map reuse.
+```python
+from browser_use import Agent, Browser, Controller
+from dombot import register_dombot_tools
 
-## Route Pattern Normalization
+controller = Controller()
+register_dombot_tools(controller)
 
-Equivalent route structures are grouped:
+agent = Agent(
+    task="buy a macbook on walmart",
+    llm=llm,
+    browser=Browser(use_cloud=True),
+    controller=controller,
+)
 
-- `/product/1234` -> `/product/:id`
-- `/user/nathaniel/settings` -> `/user/:username/settings`
-- `/search?q=shoes` -> `/search`
+await agent.run()
+```
 
-This improves cache reuse while structural hash still separates genuinely different DOM variants.
+---
 
-## Agent Readiness Scoring (Harness Concept)
+## Architecture
 
-DomBot separates two concerns:
+```
+browser-use agent
+    |
+    |-- dombot_query tool  --> DomBot API --> MongoDB Atlas ($vectorSearch)
+    |-- dombot_report tool --> DomBot API --> MongoDB Atlas (store step)
+    |
+Laminar (trace capture)
+    |
+    v
+Trace processing pipeline --> MongoDB Atlas (update task nodes)
+```
 
-- **Map Generator (DomBot):** produces interaction artifacts
-- **Harness (Evaluator):** scores readiness and reports regressions across deploys
+### Stack
 
-MVP readiness dimensions:
+| Component | Role |
+|-----------|------|
+| **browser-use** | Agent execution (`use_cloud=True` for stealth + CAPTCHA) |
+| **MongoDB Atlas** | Storage + vector search (`$vectorSearch` on task embeddings) |
+| **Laminar** | Trace capture (native browser-use integration) |
+| **OpenAI Embeddings** | Embed task descriptions for similarity matching |
 
-- Stable locator coverage
-- Accessibility role/name quality
-- Structural drift vs previous deploy
-- Risk flags (modals, missing labels, hidden/disabled controls, iframe/canvas-heavy surfaces)
+### MongoDB Schema
 
-## Product Strategy
+One document per task type:
 
-DomBot can evolve as two complementary products:
+```json
+{
+  "task": "buy a macbook on walmart",
+  "task_embedding": [0.23, 0.41, "..."],
+  "domain": "walmart.com",
+  "run_count": 500,
+  "confidence": 0.94,
+  "optimal_actions": [
+    "search 'Macbook'",
+    "click first Electronics result",
+    "click Add to cart",
+    "proceed to checkout"
+  ],
+  "step_traces": [
+    {
+      "step": 1,
+      "action": "type",
+      "target": "search_input",
+      "value": "Macbook",
+      "success_rate": 0.97,
+      "attempt_count": 485
+    }
+  ]
+}
+```
 
-1. **Consumer product ("DomBot Agent")**
-   - Installed in agent stacks
-   - Local cache by default, optional shared cache
-   - Makes existing agents faster and more reliable
+---
 
-2. **Business product ("DomBot Site")**
-   - Deploy-time map publication (`/.well-known/dombot/map`)
-   - Agent-traffic analytics and quality tooling
-   - Helps sites become "agent-ready"
+## Project Structure
 
-## Shared Cache Flywheel
+```
+dombot/
+  __init__.py
+  tools.py           # @controller.action tools (dombot_query, dombot_report)
+  db.py              # MongoDB connection, query_context, store_step, store_trace
+  embeddings.py      # Task embedding via OpenAI
+  prompts.py         # System prompt additions, optimal path formatting
+  trace_pipeline.py  # Laminar traces --> MongoDB task nodes
+  config.py          # Environment config (API keys, MongoDB URI)
+scripts/
+  demo.py            # Demo script: run agent with DomBot
+  seed_db.py         # Seed MongoDB with sample task nodes
+tests/
+```
 
-Longer term, a shared cache unlocks network effects:
+---
 
-1. One user maps a common workflow
-2. Other users get instant warm-start maps
-3. Confidence improves from repeated successful executions
-4. Fallback quality improves from real failure telemetry
+## Team
 
-## Status
+| Person | Scope | Key Deliverables |
+|--------|-------|------------------|
+| **Person 1** | browser-use integration + prompt design | `tools.py`, `prompts.py` — register DomBot tools, design system prompt, format optimal path output so the LLM actually follows it |
+| **Person 2** | MongoDB + data layer | `db.py`, `embeddings.py` — Atlas setup, vector search index, `query_context()`, `store_step()`, `store_trace()`, confidence scoring |
+| **Person 3** | Laminar + trace pipeline + demo | `trace_pipeline.py`, `scripts/demo.py` — Laminar instrumentation, trace processing, convergence logic, demo script |
 
-This repository currently captures the DomBot concept and architecture direction.
+### Shared Interfaces
 
-Near-term MVP target:
+```python
+# Person 2 implements, Person 1 calls via tools
+def query_context(task: str, domain: str) -> OptimalPath | None
+def store_step(task: str, domain: str, step: StepData) -> None
+def store_trace(task: str, domain: str, trace: list[StepData], success: bool) -> None
+```
 
-- Local page-level extraction middleware
-- Structural hash cache
-- Selector fallback execution
-- Demo showing run-1 learning and run-2 speedup
+---
 
-## One-Line Pitch
+## Setup
 
-DomBot turns every deploy into a versioned agent interface and a regression signal for agent reliability.
+```bash
+# Clone
+git clone <repo-url>
+cd dombot
+
+# Install
+pip install -r requirements.txt
+
+# Environment
+cp .env.example .env
+# Fill in: MONGODB_URI, OPENAI_API_KEY, LAMINAR_API_KEY, BROWSERUSE_API_KEY
+
+# Run demo
+python scripts/demo.py
+```
+
+---
+
+## The Big Picture
+
+DomBot is two products built on one shared database:
+
+- **Consumer (DomBot Agent)** — Python package. Works on any site, no site owner buy-in. Agents learn from each other.
+- **Business (DomBot Site)** — Site owners opt in for verified maps, analytics on agent traffic, and an Agent Readiness Score.
+
+The shared trace database is the moat. Every run makes it smarter. Once you have 1M traces across 10,000 sites, optimal paths are baked in. A competitor starting from zero is years behind.
+
+**This is the Google crawl index moment for AI agents.**

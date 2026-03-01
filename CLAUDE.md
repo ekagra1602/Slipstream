@@ -1,120 +1,171 @@
-# BrowserUse / DomBot — Project Context
+# DomBot — Project Context
 
 ## What This Project Is
 
-**DomBot** — a deploy-time DOM metadata layer that makes browser agents (browser-use, Skyvern, etc.) faster and more reliable. Two complementary products:
+DomBot is a shared learning layer for browser-use agents. It registers custom tools via `@controller.action` that let the agent query a knowledge base of past successful runs before deciding what to do, and report results after each step. Every run compounds into better paths for future users.
 
-1. **DomBot Agent** (Consumer) — a package installed on the agent side. Runs semantic extraction on every page visit, builds/caches DOM maps locally, optionally contributes to a shared community cache.
-2. **DomBot Site** (Business) — a developer build step. Exports a versioned DOM map at `/.well-known/dombot/map`. Emits an Agent Readiness Score on every deploy. CI integration.
-
-**One-line pitch:** "DomBot turns every deploy into a versioned agent interface + a regression test for agent reliability."
-
-**Analogy:** DomBot is to AI agents what `sitemap.xml` + Schema.org is to search engines.
+**One-line pitch:** "Waze for web agents — every run makes the map better for everyone."
 
 ---
 
-## Notion Pages (BrowserUse workspace)
+## How It Works
 
-Parent page: https://www.notion.so/315fe709905c8066b044fb0377131bfc
+DomBot does NOT do its own DOM extraction or Playwright calls. It piggybacks on what browser-use already produces (DOM, screenshots, accessibility tree). DomBot's role is:
 
-| Page | URL | Summary |
-|------|-----|---------|
-| BrowserUse (root) | `315fe709-905c-8066-b044-fb0377131bfc` | Parent page, links all sub-pages |
-| First prototype | `315fe709-905c-80ac-b2c3-e90c1e439810` | Full DomBot spec: problem, solution, MVP scope, demo plan |
-| Dombot | `315fe709-905c-805d-bee3-ed3f2e71ef76` | Summary: map generator vs. harness, deploy flow, node map schema, Agent Readiness Score |
-| DomBot — Consumer Product & Pre-Flight Crawl Architecture | `315fe709-905c-81ab-860d-c0304d9796c0` | Two-product strategy, pre-flight crawl loop, caching/invalidation, shared DOM cache |
-| DomBot — Integration | `315fe709-905c-81af-8273-e7e1147c52a4` | How DomBot hooks into browser-use as observation middleware |
-| Research: Web Agent Hackathon | `314fe709-905c-8122-9762-fc810cbe80fa` | Failure landscape, opportunity map, mechanism sketches (rollback + memory loop) |
-| Pivot 4: Agent Observability | `315fe709-905c-81d3-879e-e83d6587dc81` | Agent drift, continuous-task observability, ASI metric, deep competitive scan |
+1. **Before the LLM decides:** Agent calls `dombot_query` tool → DomBot queries MongoDB for similar past successful runs → returns optimal actions as context
+2. **After each step:** Agent calls `dombot_report` tool → DomBot stores what happened (action, target, success/failure)
+3. **After a run completes:** Trace pipeline processes the full run → updates the task node in MongoDB → confidence and optimal path improve
+
+```
+browser-use extracts DOM / screenshot / accessibility tree (as normal)
+    ↓
+Agent calls dombot_query(task, domain) → MongoDB $vectorSearch
+    ↓
+LLM sees: normal browser-use context + DomBot's optimal path from past runs
+    ↓
+LLM decides action
+    ↓
+browser-use executes
+    ↓
+Agent calls dombot_report(step_data) → MongoDB stores step
+    ↓
+Repeat
+```
 
 ---
 
-## Core Architecture
+## Integration Pattern
 
-### DOM Node Map schema (per node)
+Uses browser-use's `@controller.action` decorator. No subclassing, no middleware, no monkey-patching.
+
+```python
+from browser_use import Controller
+
+controller = Controller()
+
+@controller.action("Query DomBot for optimal actions based on past successful runs")
+def dombot_query(task: str, domain: str) -> str:
+    return db.query_context(task, domain)
+
+@controller.action("Report step result to DomBot")
+def dombot_report(task: str, domain: str, action: str, target: str, success: bool) -> str:
+    db.store_step(task, domain, {"action": action, "target": target, "success": success})
+    return "stored"
+```
+
+---
+
+## Tech Stack
+
+| Component | Role |
+|-----------|------|
+| **browser-use** | Agent execution, `use_cloud=True` for stealth + CAPTCHA solving |
+| **MongoDB Atlas** | Storage + `$vectorSearch` on task embeddings |
+| **Laminar** | Trace capture, native browser-use integration |
+| **OpenAI Embeddings** | Embed task descriptions for vector similarity |
+
+---
+
+## MongoDB Schema
+
+### `task_nodes` collection (one doc per task type)
+
 ```json
 {
-  "node_id": "checkout_primary_cta",
-  "role": "button",
-  "name": "Checkout",
-  "selectors": {
-    "preferred": "[data-testid='checkout']",
-    "fallbacks": ["button:has-text('Checkout')", "[aria-label*='Checkout']"]
-  },
-  "context": { "container": "cart_summary", "nearby_text": ["Total", "Shipping"] },
-  "actions": ["click"]
+  "task": "buy a macbook on walmart",
+  "task_embedding": [0.23, 0.41, "..."],
+  "domain": "walmart.com",
+  "run_count": 500,
+  "confidence": 0.94,
+  "optimal_actions": [
+    "search 'Macbook'",
+    "click first Electronics result",
+    "click Add to cart",
+    "proceed to checkout"
+  ],
+  "step_traces": [
+    {
+      "step": 1,
+      "action": "type",
+      "target": "search_input",
+      "value": "Macbook",
+      "success_rate": 0.97,
+      "attempt_count": 485
+    }
+  ]
 }
 ```
 
-### Cache key strategy
-```javascript
-hash(interactive_elements) = hash of:
-  - role/type/label/name values of interactive nodes
-  - relative positions in the tree
-  - NOT content (prices, names) — structure only
-```
-Cache lookup: `cache[domain][route_pattern][structural_hash]`
-Route normalization: `/product/1234` → `/product/:id`
+Retrieval is a single `$vectorSearch` query. No Graph RAG, no `$graphLookup` (research agents unanimously rejected both for v1).
 
-### Integration with browser-use
-DomBot sits between **observe** and **send to LLM** as automatic middleware:
+---
+
+## Project Structure
+
+```
+dombot/
+  __init__.py
+  tools.py           # @controller.action tools (dombot_query, dombot_report)
+  db.py              # MongoDB connection, query_context, store_step, store_trace
+  embeddings.py      # Task embedding via OpenAI
+  prompts.py         # System prompt additions, optimal path formatting for LLM
+  trace_pipeline.py  # Laminar traces → MongoDB task nodes
+  config.py          # Environment config
+scripts/
+  demo.py            # Demo: run agent with DomBot
+  seed_db.py         # Seed MongoDB with sample data
+tests/
+```
+
+---
+
+## Team Split
+
+| Person | Owns | Key Files |
+|--------|------|-----------|
+| **Person 1** | browser-use tools + prompt design | `tools.py`, `prompts.py` |
+| **Person 2** | MongoDB + data layer | `db.py`, `embeddings.py`, `config.py` |
+| **Person 3** | Laminar + trace pipeline + demo | `trace_pipeline.py`, `scripts/demo.py` |
+
+### Shared Contract (Person 2 implements, Person 1 calls)
+
 ```python
-agent = Agent(
-    task="complete checkout",
-    llm=llm,
-    browser=browser,
-    observation_middleware=[dombot.enrich]  # fires on every page, before LLM
-)
-```
-
-### Deploy pipeline
-```
-Build/Deploy → DomBot scan → Extract nodes → Emit dombot_map.json
-                                                   ↓
-                                         Harness: Agent Readiness Score
-                                         Diff vs. previous map
-                                         Optionally fail CI
+def query_context(task: str, domain: str) -> OptimalPath | None
+def store_step(task: str, domain: str, step: StepData) -> None
+def store_trace(task: str, domain: str, trace: list[StepData], success: bool) -> None
 ```
 
 ---
 
-## Key Failure Modes (from Research page)
+## Key Design Decisions
 
-1. **Compound Reliability Decay** — 89% per-step → ~31% end-to-end on 10-step tasks
-2. **DOM Drift** — SPAs, shadow DOMs, A/B tests, canvas elements
-3. **Event Sequencing** — `element.click()` silently fails; need full hover→mousedown→mouseup→click chain
-4. **Timing/State Sync** — 500ms–2s model latency, agent acts on stale DOM
-5. **Vision Precision** — 24px calendar cells, dense grids
-
----
-
-## Opportunities / What's Being Built
-
-| ID | Name | Core idea |
-|----|------|-----------|
-| 1 | DOM-Diff Rollback Engine | Signal-based (not LLM) rollback on state regression |
-| 2 | Action Fingerprinting + Self-Healing Selectors | Live versioned map of action→DOM-state pairs |
-| 3 | Trace→Memory→Behavior Loop ("Agent Déjà Vu") | Structured failure traces fed back as pre-execution context |
-| 4 | DOM Event Verification | Before/after diff to confirm click actually registered |
-| 5 | Execution Budget Controller | Kill/reroute tasks that are stalling |
+1. **Tool-based integration, not middleware** — Uses `@controller.action`, not Agent subclassing. Cleaner, future-proof, works with cloud API.
+2. **Node = task, not page** — Each MongoDB document represents a task (e.g., "buy macbook on walmart"), not a page state. Vector search finds the right task node.
+3. **No Graph RAG for v1** — Research concluded that `$graphLookup` can't do weighted shortest path and Graph RAG is premature. Simple denormalized documents + vector search covers the MVP.
+4. **Laminar for trace capture** — Native browser-use integration, SQL API for programmatic trace extraction. Runs on our infrastructure, invisible to consumers.
+5. **`use_cloud=True`** — Gets browser-use cloud stealth (anti-detect, CAPTCHA, proxies) while keeping full SDK control.
 
 ---
 
-## Research Workspace
+## Two-Product Strategy (Future)
 
-Located at `research/`. Five-agent workflow: empiricalist → theorist → contrarian → falsifier → research-master.
+- **Consumer (DomBot Agent)** — Python package wrapping browser-use. Works on any site. Agents learn from each other's runs.
+- **Business (DomBot Site)** — Site owners opt in for verified DOM maps at `/.well-known/dombot/map`, agent traffic analytics, Agent Readiness Score.
 
-```bash
-cd research && ./setup_run.sh "Your research question"
-```
+The consumer product is the wedge. The business product is the upsell.
 
 ---
 
-## Working with Notion
+## Notion Pages
 
-Use the `notion` subagent (`.claude/agents/notion.md`) to:
-- Fetch latest context from any page above
-- Add findings/decisions to Notion pages
-- Search for related content
+Parent: https://www.notion.so/315fe709905c8066b044fb0377131bfc
 
-To invoke: use the Agent tool with `subagent_type: "notion"` — or run `/notion` if configured as a command.
+| Page | ID | Summary |
+|------|----|---------|
+| BrowserUse (root) | `315fe709-905c-8066-b044-fb0377131bfc` | Parent page |
+| First prototype | `315fe709-905c-80ac-b2c3-e90c1e439810` | Full spec, MVP scope |
+| Dombot | `315fe709-905c-805d-bee3-ed3f2e71ef76` | Map generator, deploy flow |
+| Consumer Product & Pre-Flight Crawl | `315fe709-905c-81ab-860d-c0304d9796c0` | Two-product strategy, caching |
+| DomBot Integration | `315fe709-905c-81af-8273-e7e1147c52a4` | browser-use integration paths |
+| MVP1 Architecture | `316fe709-905c-81c1-8451-c1288136d054` | Full MVP1 technical spec |
+| Research: Web Agent Hackathon | `314fe709-905c-8122-9762-fc810cbe80fa` | Failure landscape, opportunities |
