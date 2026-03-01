@@ -31,6 +31,7 @@ class OptimalPath:
     confidence: float
     run_count: int
     optimal_actions: list[str] = field(default_factory=list)
+    successful_results: list[str] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -138,6 +139,7 @@ def query_context(task: str, domain: str) -> OptimalPath | None:
             confidence=result.confidence,
             run_count=result.run_count,
             optimal_actions=list(result.optimal_actions),
+            successful_results=list(getattr(result, "successful_results", []) or []),
         )
 
     # Mock backend behavior below.
@@ -177,7 +179,13 @@ def store_step(task: str, domain: str, step: dict) -> None:
     _step_log.append(entry)
 
 
-def store_trace(task: str, domain: str, trace: list[dict], success: bool) -> None:
+def store_trace(
+    task: str,
+    domain: str,
+    trace: list[dict],
+    success: bool,
+    run_metrics: dict | None = None,
+) -> None:
     """Store the full trace after a run completes."""
     canonical_domain = _canon_domain(domain)
     backend, real_db = _resolve_backend()
@@ -195,11 +203,18 @@ def store_trace(task: str, domain: str, trace: list[dict], success: bool) -> Non
                 for s in trace
             ],
             success=success,
+            run_metrics=run_metrics,
         )
         return
 
     # Mock backend behavior below.
-    entry = {"task": task, "domain": canonical_domain, "steps": trace, "success": success}
+    entry = {
+        "task": task,
+        "domain": canonical_domain,
+        "steps": trace,
+        "success": success,
+        "run_metrics": run_metrics or {},
+    }
     _trace_log.append(entry)
 
 

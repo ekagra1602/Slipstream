@@ -1,0 +1,175 @@
+run_idx,task,domain,status,steps,duration_s,trace_id,agent_success,judge_validated,judge_failure_reason,input_tokens,output_tokens,total_tokens,estimated_usd_cost,mongo_run_count,mongo_confidence,mongo_optimal_actions,final_result,error
+1,"On walmart.com, search for
+  'wireless keyboard and mouse combo', add the cheapest in-stock non-sponsored item
+  with rating >= 4.2 and at least 500 reviews to cart, set quantity to 2 in cart, and
+  return exactly 5 lines from cart page only: (1) product title, (2) unit price, (3)
+  quantity, (4) cart item count, (5) cart subtotal. If any field is missing or quantity
+  is not 2, fail.",walmart.com,ok,8,107.916,782d18de-cef0-5614-4d3f-596965e97eba,True,True,,0,0,0,0.0,1,0.0,0,"(1) Product title: RECCAZR Wireless Keyboard and Mouse Combo for Windows, 2.4G Full Size, 12 Multimedia and Shortcut Keys, 3-Year Battery Life,  for Windows, Mac OS Desktop/Laptop/PC(Blue)\n(2) Unit price: $19.09\n(3) Quantity: 2\n(4) Cart item count: 2 items\n(5) Cart subtotal: $38.18",
+2,"On walmart.com, search for
+  'wireless keyboard and mouse combo', add the cheapest in-stock non-sponsored item
+  with rating >= 4.2 and at least 500 reviews to cart, set quantity to 2 in cart, and
+  return exactly 5 lines from cart page only: (1) product title, (2) unit price, (3)
+  quantity, (4) cart item count, (5) cart subtotal. If any field is missing or quantity
+  is not 2, fail.",walmart.com,ok,9,133.79,ffc34c7f-2087-88ca-5d05-031cdc0abd9b,True,True,,0,0,0,0.0,2,0.275,15,"RECCAZR Wireless Keyboard and Mouse Combo for Windows, 2.4G Full Size, 12 Multimedia and Shortcut Keys, 3-Year Battery Life, for Windows, Mac OS Desktop/Laptop/PC(Blue)\n$19.09\n2\n2\n$38.18",
+3,"On walmart.com, search for
+  'wireless keyboard and mouse combo', add the cheapest in-stock non-sponsored item
+  with rating >= 4.2 and at least 500 reviews to cart, set quantity to 2 in cart, and
+  return exactly 5 lines from cart page only: (1) product title, (2) unit price, (3)
+  quantity, (4) cart item count, (5) cart subtotal. If any field is missing or quantity
+  is not 2, fail.",walmart.com,ok,13,150.896,6d3a35f8-7eb3-bfba-cf6e-e2dde472092d,True,True,,0,0,0,0.0,3,0.192,15,"RECCAZR Wireless Keyboard and Mouse Combo for Windows, 2.4G Full Size, 12 Multimedia and Shortcut Keys, 3-Year Battery Life, for Windows, Mac OS Desktop/Laptop/PC(Blue)\n$19.09\n2\n2\n$38.18",
+4,"On walmart.com, search for
+  'wireless keyboard and mouse combo', add the cheapest in-stock non-sponsored item
+  with rating >= 4.2 and at least 500 reviews to cart, set quantity to 2 in cart, and
+  return exactly 5 lines from cart page only: (1) product title, (2) unit price, (3)
+  quantity, (4) cart item count, (5) cart subtotal. If any field is missing or quantity
+  is not 2, fail.",walmart.com,ok,12,138.87,4397bc8a-eff1-2113-7622-8225a17ab007,True,True,,0,0,0,0.0,4,0.299,27,"RECCAZR Wireless Keyboard and Mouse Combo for Windows, 2.4G Full Size, 12 Multimedia and Shortcut Keys, 3-Year Battery Life, for Windows, Mac OS Desktop/Laptop/PC(Blue)
+$19.09
+2
+2
+$38.18",
+5,"On walmart.com, search for
+  'wireless keyboard and mouse combo', add the cheapest in-stock non-sponsored item
+  with rating >= 4.2 and at least 500 reviews to cart, set quantity to 2 in cart, and
+  return exactly 5 lines from cart page only: (1) product title, (2) unit price, (3)
+  quantity, (4) cart item count, (5) cart subtotal. If any field is missing or quantity
+  is not 2, fail.",walmart.com,ok,8,108.068,a0079aca-d715-56c1-68bc-abf6325826aa,True,True,,0,0,0,0.0,5,0.374,6,"RECCAZR Wireless Keyboard and Mouse Combo for Windows, 2.4G Full Size, 12 Multimedia and Shortcut Keys, 3-Year Battery Life, for Windows, Mac OS Desktop/Laptop/PC(Blue)\n$19.09\n2\n2\n$38.18",
+6,"On walmart.com, search for
+  'wireless keyboard and mouse combo', add the cheapest in-stock non-sponsored item
+  with rating >= 4.2 and at least 500 reviews to cart, set quantity to 2 in cart, and
+  return exactly 5 lines from cart page only: (1) product title, (2) unit price, (3)
+  quantity, (4) cart item count, (5) cart subtotal. If any field is missing or quantity
+  is not 2, fail.",walmart.com,ok,9,116.715,58903600-218d-26ef-92ec-058c2c555b3f,True,True,,0,0,0,0.0,6,0.324,6,"RECCAZR Wireless Keyboard and Mouse Combo for Windows, 2.4G Full Size, 12 Multimedia and Shortcut Keys, 3-Year Battery Life, for Windows, Mac OS Desktop/Laptop/PC(Blue)\n$19.09\n2\n2\n$38.18",
+7,"On walmart.com, search for
+  'wireless keyboard and mouse combo', add the cheapest in-stock non-sponsored item
+  with rating >= 4.2 and at least 500 reviews to cart, set quantity to 2 in cart, and
+  return exactly 5 lines from cart page only: (1) product title, (2) unit price, (3)
+  quantity, (4) cart item count, (5) cart subtotal. If any field is missing or quantity
+  is not 2, fail.",walmart.com,ok,10,120.34,a9206ad0-9571-7967-2446-a8536dc053e6,True,True,,0,0,0,0.0,7,0.289,6,"RECCAZR Wireless Keyboard and Mouse Combo for Windows, 2.4G Full Size, 12 Multimedia and Shortcut Keys, 3-Year Battery Life, for Windows, Mac OS Desktop/Laptop/PC(Blue)\n$19.09\n2\n2\n$38.18",
+8,"On walmart.com, search for
+  'wireless keyboard and mouse combo', add the cheapest in-stock non-sponsored item
+  with rating >= 4.2 and at least 500 reviews to cart, set quantity to 2 in cart, and
+  return exactly 5 lines from cart page only: (1) product title, (2) unit price, (3)
+  quantity, (4) cart item count, (5) cart subtotal. If any field is missing or quantity
+  is not 2, fail.",walmart.com,ok,9,114.564,33c53c82-dbc6-15bf-1751-d803dcce8251,True,True,,0,0,0,0.0,8,0.262,6,"RECCAZR Wireless Keyboard and Mouse Combo for Windows, 2.4G Full Size, 12 Multimedia and Shortcut Keys, 3-Year Battery Life, for Windows, Mac OS Desktop/Laptop/PC(Blue)
+$19.09
+2
+2
+$38.18",
+9,"On walmart.com, search for
+  'wireless keyboard and mouse combo', add the cheapest in-stock non-sponsored item
+  with rating >= 4.2 and at least 500 reviews to cart, set quantity to 2 in cart, and
+  return exactly 5 lines from cart page only: (1) product title, (2) unit price, (3)
+  quantity, (4) cart item count, (5) cart subtotal. If any field is missing or quantity
+  is not 2, fail.",walmart.com,ok,9,108.774,2ea3a437-8b27-8be4-c881-f089cede3dc2,True,True,,0,0,0,0.0,9,0.241,6,"RECCAZR Wireless Keyboard and Mouse Combo for Windows, 2.4G Full Size, 12 Multimedia and Shortcut Keys, 3-Year Battery Life, for Windows, Mac OS Desktop/Laptop/PC(Blue)
+$19.09
+2
+2
+$38.18",
+10,"On walmart.com, search for
+  'wireless keyboard and mouse combo', add the cheapest in-stock non-sponsored item
+  with rating >= 4.2 and at least 500 reviews to cart, set quantity to 2 in cart, and
+  return exactly 5 lines from cart page only: (1) product title, (2) unit price, (3)
+  quantity, (4) cart item count, (5) cart subtotal. If any field is missing or quantity
+  is not 2, fail.",walmart.com,ok,7,103.273,8c569781-79f2-4c85-4755-c4845f75f95a,True,True,,0,0,0,0.0,10,0.225,6,"RECCAZR Wireless Keyboard and Mouse Combo for Windows, 2.4G Full Size, 12 Multimedia and Shortcut Keys, 3-Year Battery Life, for Windows, Mac OS Desktop/Laptop/PC(Blue)
+$19.09
+2
+2
+$38.18",
+11,"On walmart.com, search for
+  'wireless keyboard and mouse combo', add the cheapest in-stock non-sponsored item
+  with rating >= 4.2 and at least 500 reviews to cart, set quantity to 2 in cart, and
+  return exactly 5 lines from cart page only: (1) product title, (2) unit price, (3)
+  quantity, (4) cart item count, (5) cart subtotal. If any field is missing or quantity
+  is not 2, fail.",walmart.com,ok,9,107.252,9e13b916-21ee-ba85-d9b9-d172dc3b5f12,True,True,,0,0,0,0.0,11,0.211,6,"RECCAZR Wireless Keyboard and Mouse Combo for Windows, 2.4G Full Size, 12 Multimedia and Shortcut Keys, 3-Year Battery Life,  for Windows, Mac OS Desktop/Laptop/PC(Blue)
+$19.09
+2
+2
+$38.18",
+12,"On walmart.com, search for
+  'wireless keyboard and mouse combo', add the cheapest in-stock non-sponsored item
+  with rating >= 4.2 and at least 500 reviews to cart, set quantity to 2 in cart, and
+  return exactly 5 lines from cart page only: (1) product title, (2) unit price, (3)
+  quantity, (4) cart item count, (5) cart subtotal. If any field is missing or quantity
+  is not 2, fail.",walmart.com,ok,9,114.914,bfc626c3-7c33-0c05-004d-dfb61972b7c7,True,True,,0,0,0,0.0,12,0.2,6,"RECCAZR Wireless Keyboard and Mouse Combo for Windows, 2.4G Full Size, 12 Multimedia and Shortcut Keys, 3-Year Battery Life, for Windows, Mac OS Desktop/Laptop/PC(Blue)\n$19.09\n2\n2\n$38.18",
+13,"On walmart.com, search for
+  'wireless keyboard and mouse combo', add the cheapest in-stock non-sponsored item
+  with rating >= 4.2 and at least 500 reviews to cart, set quantity to 2 in cart, and
+  return exactly 5 lines from cart page only: (1) product title, (2) unit price, (3)
+  quantity, (4) cart item count, (5) cart subtotal. If any field is missing or quantity
+  is not 2, fail.",walmart.com,ok,10,116.057,cd339fc2-f04f-2d4a-bf83-c9bbe9623333,True,True,,0,0,0,0.0,13,0.19,6,"RECCAZR Wireless Keyboard and Mouse Combo for Windows, 2.4G Full Size, 12 Multimedia and Shortcut Keys, 3-Year Battery Life, for Windows, Mac OS Desktop/Laptop/PC(Blue)\n$19.09\n2\n2\n$38.18",
+14,"On walmart.com, search for
+  'wireless keyboard and mouse combo', add the cheapest in-stock non-sponsored item
+  with rating >= 4.2 and at least 500 reviews to cart, set quantity to 2 in cart, and
+  return exactly 5 lines from cart page only: (1) product title, (2) unit price, (3)
+  quantity, (4) cart item count, (5) cart subtotal. If any field is missing or quantity
+  is not 2, fail.",walmart.com,ok,11,135.882,51ec926a-726b-0b71-fae2-e55a3baaa49c,True,True,,0,0,0,0.0,14,0.182,6,"RECCAZR Wireless Keyboard and Mouse Combo for Windows, 2.4G Full Size, 12 Multimedia and Shortcut Keys, 3-Year Battery Life, for Windows, Mac OS Desktop/Laptop/PC(Blue)\n$19.09\n2\n2 items\n$38.18",
+15,"On walmart.com, search for
+  'wireless keyboard and mouse combo', add the cheapest in-stock non-sponsored item
+  with rating >= 4.2 and at least 500 reviews to cart, set quantity to 2 in cart, and
+  return exactly 5 lines from cart page only: (1) product title, (2) unit price, (3)
+  quantity, (4) cart item count, (5) cart subtotal. If any field is missing or quantity
+  is not 2, fail.",walmart.com,ok,10,115.989,9a5be3c5-ca28-7f5d-1e77-783d0bd1b13b,True,True,,0,0,0,0.0,15,0.175,6,"RECCAZR Wireless Keyboard and Mouse Combo for Windows, 2.4G Full Size, 12 Multimedia and Shortcut Keys, 3-Year Battery Life, for Windows, Mac OS Desktop/Laptop/PC(Blue)\n$19.09\n2\n2\n$38.18",
+16,"On walmart.com, search for
+  'wireless keyboard and mouse combo', add the cheapest in-stock non-sponsored item
+  with rating >= 4.2 and at least 500 reviews to cart, set quantity to 2 in cart, and
+  return exactly 5 lines from cart page only: (1) product title, (2) unit price, (3)
+  quantity, (4) cart item count, (5) cart subtotal. If any field is missing or quantity
+  is not 2, fail.",walmart.com,ok,8,96.899,c7d63c9b-e14d-1eb0-8b7d-508cb0f14c1a,True,True,,0,0,0,0.0,16,0.168,6,"RECCAZR Wireless Keyboard and Mouse Combo for Windows, 2.4G Full Size, 12 Multimedia and Shortcut Keys, 3-Year Battery Life, for Windows, Mac OS Desktop/Laptop/PC(Blue)\n$19.09\n2\n2\n$38.18",
+17,"On walmart.com, search for
+  'wireless keyboard and mouse combo', add the cheapest in-stock non-sponsored item
+  with rating >= 4.2 and at least 500 reviews to cart, set quantity to 2 in cart, and
+  return exactly 5 lines from cart page only: (1) product title, (2) unit price, (3)
+  quantity, (4) cart item count, (5) cart subtotal. If any field is missing or quantity
+  is not 2, fail.",walmart.com,ok,8,131.834,43756ae5-1a6e-a845-1b1b-50430ecb7e21,True,True,,0,0,0,0.0,17,0.163,6,"RECCAZR Wireless Keyboard and Mouse Combo for Windows, 2.4G Full Size, 12 Multimedia and Shortcut Keys, 3-Year Battery Life, for Windows, Mac OS Desktop/Laptop/PC(Blue)\n$19.09\n2\n2\n$38.18",
+18,"On walmart.com, search for
+  'wireless keyboard and mouse combo', add the cheapest in-stock non-sponsored item
+  with rating >= 4.2 and at least 500 reviews to cart, set quantity to 2 in cart, and
+  return exactly 5 lines from cart page only: (1) product title, (2) unit price, (3)
+  quantity, (4) cart item count, (5) cart subtotal. If any field is missing or quantity
+  is not 2, fail.",walmart.com,ok,9,109.117,d450e8c8-a912-5ad6-44bb-c622f831a00f,True,True,,0,0,0,0.0,18,0.158,6,"RECCAZR Wireless Keyboard and Mouse Combo for Windows, 2.4G Full Size, 12 Multimedia and Shortcut Keys, 3-Year Battery Life,  for Windows, Mac OS Desktop/Laptop/PC(Blue)\n$19.09\n2\n2\n$38.18",
+19,"On walmart.com, search for
+  'wireless keyboard and mouse combo', add the cheapest in-stock non-sponsored item
+  with rating >= 4.2 and at least 500 reviews to cart, set quantity to 2 in cart, and
+  return exactly 5 lines from cart page only: (1) product title, (2) unit price, (3)
+  quantity, (4) cart item count, (5) cart subtotal. If any field is missing or quantity
+  is not 2, fail.",walmart.com,ok,8,98.192,b5321193-3354-14ce-f5ea-5ff6952547e0,True,True,,0,0,0,0.0,19,0.154,6,"RECCAZR Wireless Keyboard and Mouse Combo for Windows, 2.4G Full Size, 12 Multimedia and Shortcut Keys, 3-Year Battery Life, for Windows, Mac OS Desktop/Laptop/PC(Blue)\n$19.09\n2\n2\n$38.18",
+20,"On walmart.com, search for
+  'wireless keyboard and mouse combo', add the cheapest in-stock non-sponsored item
+  with rating >= 4.2 and at least 500 reviews to cart, set quantity to 2 in cart, and
+  return exactly 5 lines from cart page only: (1) product title, (2) unit price, (3)
+  quantity, (4) cart item count, (5) cart subtotal. If any field is missing or quantity
+  is not 2, fail.",walmart.com,ok,9,102.89,c0c645bd-1013-3f98-ebe3-ea9cb3bc9a50,True,True,,0,0,0,0.0,20,0.15,6,"RECCAZR Wireless Keyboard and Mouse Combo for Windows, 2.4G Full Size, 12 Multimedia and Shortcut Keys, 3-Year Battery Life, for Windows, Mac OS Desktop/Laptop/PC(Blue)\n$19.09\n2\n2\n$38.18",
+21,"On walmart.com, search for
+  'wireless keyboard and mouse combo', add the cheapest in-stock non-sponsored item
+  with rating >= 4.2 and at least 500 reviews to cart, set quantity to 2 in cart, and
+  return exactly 5 lines from cart page only: (1) product title, (2) unit price, (3)
+  quantity, (4) cart item count, (5) cart subtotal. If any field is missing or quantity
+  is not 2, fail.",walmart.com,ok,9,105.057,b59dec95-8748-eb78-1392-37c55a71b9e7,True,True,,0,0,0,0.0,21,0.143,6,"RECCAZR Wireless Keyboard and Mouse Combo for Windows, 2.4G Full Size, 12 Multimedia and Shortcut Keys, 3-Year Battery Life, for Windows, Mac OS Desktop/Laptop/PC(Blue)\n$19.09\n2\n2\n$38.18",
+22,"On walmart.com, search for
+  'wireless keyboard and mouse combo', add the cheapest in-stock non-sponsored item
+  with rating >= 4.2 and at least 500 reviews to cart, set quantity to 2 in cart, and
+  return exactly 5 lines from cart page only: (1) product title, (2) unit price, (3)
+  quantity, (4) cart item count, (5) cart subtotal. If any field is missing or quantity
+  is not 2, fail.",walmart.com,ok,8,120.569,c4d33886-2bbb-83e7-e7db-f97c3d8bd29f,True,True,,0,0,0,0.0,22,0.136,6,"RECCAZR Wireless Keyboard and Mouse Combo for Windows, 2.4G Full Size, 12 Multimedia and Shortcut Keys, 3-Year Battery Life,  for Windows, Mac OS Desktop/Laptop/PC(Blue)\n$19.09\n2\n2\n$38.18",
+23,"On walmart.com, search for
+  'wireless keyboard and mouse combo', add the cheapest in-stock non-sponsored item
+  with rating >= 4.2 and at least 500 reviews to cart, set quantity to 2 in cart, and
+  return exactly 5 lines from cart page only: (1) product title, (2) unit price, (3)
+  quantity, (4) cart item count, (5) cart subtotal. If any field is missing or quantity
+  is not 2, fail.",walmart.com,ok,8,113.04,2f6ce610-3ab5-1ab5-fec2-d77c99614acb,True,True,,0,0,0,0.0,23,0.13,6,"(1) Logitech Wireless Keyboard and Mouse Combo for Windows, 2.4 GHz Wireless, 8 Multimedia and Shortcut Keys, Walmart Exclusive\n(2) $19.32\n(3) 2\n(4) 2 items\n(5) $38.64",
+24,"On walmart.com, search for
+  'wireless keyboard and mouse combo', add the cheapest in-stock non-sponsored item
+  with rating >= 4.2 and at least 500 reviews to cart, set quantity to 2 in cart, and
+  return exactly 5 lines from cart page only: (1) product title, (2) unit price, (3)
+  quantity, (4) cart item count, (5) cart subtotal. If any field is missing or quantity
+  is not 2, fail.",walmart.com,ok,9,109.381,54563aeb-ea3d-40d4-fff1-4eafd7b89e0f,True,True,,0,0,0,0.0,24,0.125,6,"RECCAZR Wireless Keyboard and Mouse Combo for Windows, 2.4G Full Size, 12 Multimedia and Shortcut Keys, 3-Year Battery Life, for Windows, Mac OS Desktop/Laptop/PC(Blue)\n$19.09\n2\n2\n$38.18",
+25,"On walmart.com, search for
+  'wireless keyboard and mouse combo', add the cheapest in-stock non-sponsored item
+  with rating >= 4.2 and at least 500 reviews to cart, set quantity to 2 in cart, and
+  return exactly 5 lines from cart page only: (1) product title, (2) unit price, (3)
+  quantity, (4) cart item count, (5) cart subtotal. If any field is missing or quantity
+  is not 2, fail.",walmart.com,ok,9,105.604,f269b0a2-0a11-1261-5879-4796f4f49152,True,True,,0,0,0,0.0,25,0.12,6,"RECCAZR Wireless Keyboard and Mouse Combo for Windows, 2.4G Full Size, 12 Multimedia and Shortcut Keys, 3-Year Battery Life, for Windows, Mac OS Desktop/Laptop/PC(Blue)
+$19.09
+2
+2
+$38.18",

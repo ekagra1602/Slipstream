@@ -1,0 +1,21 @@
+run_idx,task,domain,status,steps,duration_s,trace_id,agent_success,judge_validated,judge_failure_reason,mongo_run_count,mongo_confidence,mongo_optimal_actions,final_result,error
+1,"On walmart.com, add a
+  MacBook Air listing to cart and report the cart product title, item count, and
+  subtotal.",google.com,ok,7,92.104,82b6bce7-b32c-e73a-e982-c64607b66de2,True,True,,1,0.525,12,"I have successfully added a MacBook Air to the cart on Walmart.com. Here are the details: \n- **Product Title**: Restored 2020 Apple MacBook Air 13.3\"" Core i3 1.1GHz 8GB RAM 128GB SSD MWTJ2LL/A (Refurbished)\n- **Item Count**: 1\n- **Subtotal**: $279.89",
+2,"On walmart.com, add a
+  MacBook Air listing to cart and report the cart product title, item count, and
+  subtotal.",google.com,ok,8,103.794,d0e04277-ec22-68a2-9117-cd40e13711aa,True,True,,2,0.55,19,"I have added the MacBook Air to the cart. \n\nCart Details:\n- Product Title: Apple 13\"" MacBook Air with M4 chip, 10-core CPU / 8-core GPU, 16GB Memory, 256GB SSD - Midnight\n- Item Count: 1\n- Subtotal: $942.00",
+3,"On walmart.com, add a
+  MacBook Air listing to cart and report the cart product title, item count, and
+  subtotal.",google.com,ok,7,81.664,dc81ae43-f2dc-5079-d7cb-97424a65186c,True,True,,3,0.575,7,"I have successfully added a MacBook Air to the cart on Walmart.com. 
+
+Cart Details:
+- **Product Title:** Restored 2020 Apple MacBook Air 13.3\"" Core i3 1.1GHz 8GB RAM 128GB SSD MWTJ2LL/A (Refurbished)
+- **Item Count:** 1
+- **Subtotal:** $279.89",
+4,"On walmart.com, add a
+  MacBook Air listing to cart and report the cart product title, item count, and
+  subtotal.",google.com,ok,7,80.206,9fd2b732-2d12-7dff-a377-a91e40a850d7,True,True,,4,0.6,10,"I have successfully added the MacBook Air to the cart. Here are the details: \n- Product Title: Restored 2020 Apple MacBook Air 13.3\"" Core i3 1.1GHz 8GB RAM 128GB SSD MWTJ2LL/A (Refurbished)\n- Item Count: 1\n- Subtotal: $279.89",
+5,"On walmart.com, add a
+  MacBook Air listing to cart and report the cart product title, item count, and
+  subtotal.",google.com,ok,7,80.672,b3e5840c-50b5-7e86-a129-cb585de822cc,True,True,,5,0.625,7,"I have added the MacBook Air to the cart. Here are the cart details:\n- **Product Title**: Restored 2020 Apple MacBook Air 13.3\"" Core i3 1.1GHz 8GB RAM 128GB SSD MWTJ2LL/A (Refurbished)\n- **Item Count**: 1 item\n- **Subtotal**: $279.89",

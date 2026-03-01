@@ -1,0 +1,22 @@
+{
+  "name": "walmart_v3_tasks",
+  "version": 1,
+  "description": "Curated Walmart benchmark tasks for DomBot benchmark_v3.",
+  "tasks": [
+    {
+      "id": "wm_easy_mouse_cart_4fields",
+      "difficulty": "easy",
+      "task": "On walmart.com, search for 'wireless mouse', add the cheapest in-stock non-sponsored item with rating >= 4.0 and at least 100 reviews to cart, open cart, and return exactly 4 lines from cart page only: (1) product title, (2) unit price, (3) cart item count, (4) cart subtotal. If any field is missing, fail."
+    },
+    {
+      "id": "wm_medium_hub_cart_4fields",
+      "difficulty": "medium",
+      "task": "On walmart.com, search for 'usb c hub', add the cheapest in-stock non-sponsored item with rating >= 4.0 and at least 100 reviews to cart, open cart, and return exactly 4 lines from cart page only: (1) product title, (2) unit price, (3) cart item count, (4) cart subtotal. If any field is missing, fail."
+    },
+    {
+      "id": "wm_hard_combo_qty2_5fields",
+      "difficulty": "hard",
+      "task": "On walmart.com, search for 'wireless keyboard and mouse combo', add the cheapest in-stock non-sponsored item with rating >= 4.2 and at least 500 reviews to cart, set quantity to 2 in cart, and return exactly 5 lines from cart page only: (1) product title, (2) unit price, (3) quantity, (4) cart item count, (5) cart subtotal. If any field is missing or quantity is not 2, fail."
+    }
+  ]
+}

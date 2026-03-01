@@ -1,0 +1,49 @@
+run_idx,task,domain,status,steps,duration_s,trace_id,agent_success,judge_validated,judge_failure_reason,mongo_run_count,mongo_confidence,mongo_optimal_actions,final_result,error
+1,"On walmart.com, add a
+  MacBook Air listing to cart and report the cart product title, item count, and
+  subtotal.",walmart.com,ok,7,85.2,5217463d-f8df-2f75-ffa4-58c9da8d5c71,True,True,,1,0.525,11,"I have successfully added the MacBook Air to the cart. \n\nCart Details:\n- **Product Title**: Apple 13\"" MacBook Air with M4 chip, 10-core CPU / 8-core GPU, 16GB Memory, 256GB SSD - Midnight\n- **Item Count**: 1\n- **Subtotal**: $942.00",
+2,"On walmart.com, add a
+  MacBook Air listing to cart and report the cart product title, item count, and
+  subtotal.",walmart.com,ok,8,134.173,f443f8b4-b7a7-6e2b-da15-f41e09358159,True,True,,2,0.55,18,"I have successfully added the MacBook Air to the cart. \n\nCart Details:\n- **Product Title**: Apple 13\"" MacBook Air with M4 chip, 10-core CPU / 8-core GPU, 16GB Memory, 256GB SSD - Midnight\n- **Item Count**: 1\n- **Subtotal**: $942.00",
+3,"On walmart.com, add a
+  MacBook Air listing to cart and report the cart product title, item count, and
+  subtotal.",walmart.com,ok,6,82.908,40bfeb74-0e3a-05bd-487d-dea93efecbf4,True,True,,3,0.575,6,"I have successfully added a MacBook Air to the cart on Walmart.com. Here are the cart details:\n\n- **Product Title**: Apple 13\"" MacBook Air with M4 chip, 10-core CPU / 8-core GPU, 16GB Memory, 256GB SSD - Midnight\n- **Item Count**: 1\n- **Subtotal**: $942.00",
+4,"On walmart.com, add a
+  MacBook Air listing to cart and report the cart product title, item count, and
+  subtotal.",walmart.com,ok,6,78.463,890a3526-2cd3-ac12-02c6-a899c86a2f49,True,True,,4,0.6,7,"Successfully added the MacBook Air to the cart. \n\nProduct Title: Restored 2020 Apple MacBook Air 13.3\"" Core i3 1.1GHz 8GB RAM 128GB SSD MWTJ2LL/A (Refurbished)\nItem Count: 1\nSubtotal: $279.89",
+5,"On walmart.com, add a
+  MacBook Air listing to cart and report the cart product title, item count, and
+  subtotal.",walmart.com,ok,8,90.997,37e5a4f4-cbf7-0b18-cfde-9ca6c4484dfc,True,True,,5,0.625,5,"I have successfully added a MacBook Air to the cart on Walmart.com. Here are the cart details:
+- Product Title: Restored 2020 Apple MacBook Air 13.3\"" Core i3 1.1GHz 8GB RAM 128GB SSD MWTJ2LL/A (Refurbished)
+- Item Count: 1
+- Subtotal: $279.89",
+6,"On walmart.com, add a
+  MacBook Air listing to cart and report the cart product title, item count, and
+  subtotal.",walmart.com,ok,8,90.342,659e9fc7-5dd0-122d-6f8e-fe5a6e7e6351,True,True,,6,0.65,6,"Successfully added the MacBook Air to the cart. \n\nDetails:\n- Product Title: Restored 2020 Apple MacBook Air 13.3\"" Core i3 1.1GHz 8GB RAM 128GB SSD MWTJ2LL/A (Refurbished)\n- Item Count: 1\n- Subtotal: $279.89",
+7,"On walmart.com, add a
+  MacBook Air listing to cart and report the cart product title, item count, and
+  subtotal.",walmart.com,ok,7,84.858,45253237-3f04-b3b0-2b3d-8cc6159a2589,True,True,,7,0.675,6,"I have added the MacBook Air to the cart. \n\n**Cart Details:**\n- **Product Title:** Restored 2020 Apple MacBook Air 13.3\"" Core i3 1.1GHz 8GB RAM 128GB SSD MWTJ2LL/A (Refurbished)\n- **Item Count:** 1\n- **Subtotal:** $279.89",
+8,"On walmart.com, add a
+  MacBook Air listing to cart and report the cart product title, item count, and
+  subtotal.",walmart.com,ok,8,94.931,fbdf0286-54c6-7466-69d1-ee882edcb4c3,True,True,,8,0.7,7,"The MacBook Air has been added to the cart. \n\n**Cart Details:**\n- **Product Title:** Apple 13\"" MacBook Air with M4 chip, 10-core CPU / 8-core GPU, 16GB Memory, 256GB SSD - Midnight\n- **Item Count:** 1\n- **Subtotal:** $942.00",
+9,"On walmart.com, add a
+  MacBook Air listing to cart and report the cart product title, item count, and
+  subtotal.",walmart.com,ok,7,90.003,f5e03528-8f83-f655-928e-f4aa9faa52ec,True,True,,9,0.725,6,"Successfully added the MacBook Air to the cart. \n\n**Cart Details:**\n- **Product Title:** Restored 2020 Apple MacBook Air 13.3\"" Core i3 1.1GHz 8GB RAM 128GB SSD MWTJ2LL/A (Refurbished)\n- **Item Count:** 1\n- **Subtotal:** $279.89",
+10,"On walmart.com, add a
+  MacBook Air listing to cart and report the cart product title, item count, and
+  subtotal.",walmart.com,ok,7,85.323,0af62e2e-4473-a9ea-a3e2-f256d819dfc4,True,True,,10,0.75,7,"I have added a MacBook Air to the cart. \n\n**Cart Details:**\n- **Product Title:** Restored 2020 Apple MacBook Air 13.3\"" Core i3 1.1GHz 8GB RAM 128GB SSD MWTJ2LL/A (Refurbished)\n- **Item Count:** 1 item\n- **Subtotal:** $279.89",
+11,"On walmart.com, add a
+  MacBook Air listing to cart and report the cart product title, item count, and
+  subtotal.",walmart.com,ok,8,90.471,2ac75923-ad9e-5ed1-31a2-de6444da87c7,True,True,,11,0.775,6,"The MacBook Air has been added to the cart. Here are the details: \n- Product Title: Restored 2020 Apple MacBook Air 13.3\"" Core i3 1.1GHz 8GB RAM 128GB SSD MWTJ2LL/A (Refurbished)\n- Item Count: 1\n- Subtotal: $279.89",
+12,"On walmart.com, add a
+  MacBook Air listing to cart and report the cart product title, item count, and
+  subtotal.",walmart.com,ok,7,84.54,7036d8a0-a1ac-0512-b4e4-e8b9d8074ae4,True,True,,12,0.8,6,"Successfully added the MacBook Air to the cart. \n- Product Title: Apple 13\"" MacBook Air with M4 chip, 10-core CPU / 8-core GPU, 16GB Memory, 256GB SSD - Midnight\n- Item Count: 1\n- Subtotal: $942.00",
+13,"On walmart.com, add a
+  MacBook Air listing to cart and report the cart product title, item count, and
+  subtotal.",walmart.com,ok,9,99.426,fa945fe7-d2e9-91f1-edfb-9edeb42d6ac9,True,True,,13,0.825,6,"I have successfully added a MacBook Air to the cart on Walmart.com. Here are the details:\n- **Product Title**: Apple 13\"" MacBook Air with M4 chip, 10-core CPU / 8-core GPU, 16GB Memory, 256GB SSD - Midnight\n- **Item Count**: 1\n- **Subtotal**: $942.00",
+14,"On walmart.com, add a
+  MacBook Air listing to cart and report the cart product title, item count, and
+  subtotal.",walmart.com,ok,9,100.662,51cf5c9d-8d33-d62c-b674-9dc5aa50e5d1,True,True,,14,0.85,6,"I have successfully added the MacBook Air to the cart on Walmart.com. Here are the cart details: \n- **Product Title**: Apple 13\"" MacBook Air with M4 chip, 10-core CPU / 8-core GPU, 16GB Memory, 256GB SSD - Midnight\n- **Item Count**: 1\n- **Subtotal**: $942.00",
+15,"On walmart.com, add a
+  MacBook Air listing to cart and report the cart product title, item count, and
+  subtotal.",walmart.com,ok,9,95.604,3325f348-d159-4355-9002-ab052833968f,True,True,,15,0.875,6,"I have successfully added the MacBook Air to the cart on Walmart.com. Here are the cart details:\n- **Product Title**: Apple 13\"" MacBook Air with M4 chip, 10-core CPU / 8-core GPU, 16GB Memory, 256GB SSD - Midnight\n- **Item Count**: 1\n- **Subtotal**: $942.00",

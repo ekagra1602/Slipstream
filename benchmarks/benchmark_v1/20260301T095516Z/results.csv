@@ -1,0 +1,126 @@
+run_idx,task,domain,status,steps,duration_s,trace_id,agent_success,judge_validated,judge_failure_reason,input_tokens,output_tokens,total_tokens,estimated_usd_cost,mongo_run_count,mongo_confidence,mongo_optimal_actions,final_result,error
+1,"On walmart.com, search for
+  '27 inch monitor', add the cheapest in-stock non-sponsored item with rating >= 4.3
+  and at least 300 reviews to cart, open cart, and return exactly 5 lines from cart
+  page only: (1) product title, (2) unit price, (3) cart item count, (4) shipping text
+  if shown, (5) cart subtotal. If any field is missing, fail.",walmart.com,ok,8,126.291,2e65a908-a8fb-d5ee-469b-600f803ae071,True,True,,0,0,0,0.0,1,0.525,13,"(1) KOORUI 27\"" FHD 1080P Gaming Monitor, 144Hz Computer Monitor, New, E2711K\n(2) $99.64\n(3) 1 item\n(4) Free shipping\n(5) $99.64",
+2,"On walmart.com, search for
+  '27 inch monitor', add the cheapest in-stock non-sponsored item with rating >= 4.3
+  and at least 300 reviews to cart, open cart, and return exactly 5 lines from cart
+  page only: (1) product title, (2) unit price, (3) cart item count, (4) shipping text
+  if shown, (5) cart subtotal. If any field is missing, fail.",walmart.com,ok,11,123.109,3fa0df48-9c4c-f5c1-6bff-6fba873a6988,True,True,,0,0,0,0.0,2,0.547,22,"(1) KOORUI 27\"" FHD 1080P Gaming Monitor, 144Hz Computer Monitor, New, E2711K\n(2) $99.64\n(3) 1 item\n(4) Free shipping\n(5) $99.64",
+3,"On walmart.com, search for
+  '27 inch monitor', add the cheapest in-stock non-sponsored item with rating >= 4.3
+  and at least 300 reviews to cart, open cart, and return exactly 5 lines from cart
+  page only: (1) product title, (2) unit price, (3) cart item count, (4) shipping text
+  if shown, (5) cart subtotal. If any field is missing, fail.",walmart.com,ok,12,129.423,73f40191-a9ff-4dce-f585-0db808b18cbf,True,True,,0,0,0,0.0,3,0.571,8,"(1) KOORUI 27\"" FHD 1080P Gaming Monitor, 144Hz Computer Monitor, New, E2711K\n(2) $99.64\n(3) 1 item\n(4) Free shipping\n(5) $99.64",
+4,"On walmart.com, search for
+  '27 inch monitor', add the cheapest in-stock non-sponsored item with rating >= 4.3
+  and at least 300 reviews to cart, open cart, and return exactly 5 lines from cart
+  page only: (1) product title, (2) unit price, (3) cart item count, (4) shipping text
+  if shown, (5) cart subtotal. If any field is missing, fail.",walmart.com,ok,9,110.471,80f3c643-a60a-fb30-1a48-5f3e2db1a3fe,True,True,,0,0,0,0.0,4,0.447,8,"(1) KOORUI 27\"" FHD 1080P Gaming Monitor, 144Hz Computer Monitor, New, E2711K\n(2) $99.64\n(3) 1 item\n(4) Free shipping\n(5) $99.64",
+5,"On walmart.com, search for
+  '27 inch monitor', add the cheapest in-stock non-sponsored item with rating >= 4.3
+  and at least 300 reviews to cart, open cart, and return exactly 5 lines from cart
+  page only: (1) product title, (2) unit price, (3) cart item count, (4) shipping text
+  if shown, (5) cart subtotal. If any field is missing, fail.",walmart.com,ok,10,137.948,f7bd4353-b43c-1850-a4d1-f1b287bffec4,True,True,,0,0,0,0.0,5,0.372,8,"(1) KOORUI 27\"" FHD 1080P Gaming Monitor, 144Hz Computer Monitor, New, E2711K\n(2) $99.64\n(3) 1 item\n(4) Free shipping\n(5) $99.64",
+6,"On walmart.com, search for
+  '27 inch monitor', add the cheapest in-stock non-sponsored item with rating >= 4.3
+  and at least 300 reviews to cart, open cart, and return exactly 5 lines from cart
+  page only: (1) product title, (2) unit price, (3) cart item count, (4) shipping text
+  if shown, (5) cart subtotal. If any field is missing, fail.",walmart.com,ok,8,100.537,5265fdeb-2de9-ee56-17ed-bd19dd3f1059,True,True,,0,0,0,0.0,6,0.431,8,"(1) KOORUI 27\"" FHD 1080P Gaming Monitor, 144Hz Computer Monitor, New, E2711K\n(2) $99.64\n(3) 1 item\n(4) Free shipping\n(5) $99.64",
+7,"On walmart.com, search for
+  '27 inch monitor', add the cheapest in-stock non-sponsored item with rating >= 4.3
+  and at least 300 reviews to cart, open cart, and return exactly 5 lines from cart
+  page only: (1) product title, (2) unit price, (3) cart item count, (4) shipping text
+  if shown, (5) cart subtotal. If any field is missing, fail.",walmart.com,ok,9,127.28,3a404e79-a735-cf26-5849-9342992706b1,True,True,,0,0,0,0.0,7,0.384,8,"(1) KOORUI 27\"" FHD 1080P Gaming Monitor, 144Hz Computer Monitor, New, E2711K\n(2) $99.64\n(3) 1 item\n(4) Free shipping\n(5) $99.64",
+8,"On walmart.com, search for
+  '27 inch monitor', add the cheapest in-stock non-sponsored item with rating >= 4.3
+  and at least 300 reviews to cart, open cart, and return exactly 5 lines from cart
+  page only: (1) product title, (2) unit price, (3) cart item count, (4) shipping text
+  if shown, (5) cart subtotal. If any field is missing, fail.",walmart.com,ok,9,112.167,3eb345eb-ff9b-2e0e-cda9-480721d95b95,True,True,,0,0,0,0.0,8,0.348,8,"(1) KOORUI 27\"" FHD 1080P Gaming Monitor, 144Hz Computer Monitor, New, E2711K\n(2) $99.64\n(3) 1 item\n(4) Free shipping\n(5) $99.64",
+9,"On walmart.com, search for
+  '27 inch monitor', add the cheapest in-stock non-sponsored item with rating >= 4.3
+  and at least 300 reviews to cart, open cart, and return exactly 5 lines from cart
+  page only: (1) product title, (2) unit price, (3) cart item count, (4) shipping text
+  if shown, (5) cart subtotal. If any field is missing, fail.",walmart.com,ok,8,95.893,10751305-69b4-38b4-9444-96e90d5b20dc,True,True,,0,0,0,0.0,9,0.402,7,"(1) KOORUI 27\"" FHD 1080P Gaming Monitor, 144Hz Computer Monitor, New, E2711K\n(2) $99.64\n(3) 1 item\n(4) Free shipping\n(5) $99.64",
+10,"On walmart.com, search for
+  '27 inch monitor', add the cheapest in-stock non-sponsored item with rating >= 4.3
+  and at least 300 reviews to cart, open cart, and return exactly 5 lines from cart
+  page only: (1) product title, (2) unit price, (3) cart item count, (4) shipping text
+  if shown, (5) cart subtotal. If any field is missing, fail.",walmart.com,ok,9,107.568,66e6e536-f08c-1ad7-77dc-2ff136209610,True,True,,0,0,0,0.0,10,0.374,7,"(1) KOORUI 27\"" FHD 1080P Gaming Monitor, 144Hz Computer Monitor, New, E2711K\n(2) $99.64\n(3) 1 item\n(4) Free shipping\n(5) $99.64",
+11,"On walmart.com, search for
+  '27 inch monitor', add the cheapest in-stock non-sponsored item with rating >= 4.3
+  and at least 300 reviews to cart, open cart, and return exactly 5 lines from cart
+  page only: (1) product title, (2) unit price, (3) cart item count, (4) shipping text
+  if shown, (5) cart subtotal. If any field is missing, fail.",walmart.com,ok,9,128.827,ae6a8a9a-b2f9-fe25-ea92-b67e2ab9fa77,True,True,,0,0,0,0.0,11,0.351,7,"(1) KOORUI 27\"" FHD 1080P Gaming Monitor, 144Hz Computer Monitor, New, E2711K\n(2) $99.64\n(3) 1 item\n(4) Free shipping\n(5) $99.64",
+12,"On walmart.com, search for
+  '27 inch monitor', add the cheapest in-stock non-sponsored item with rating >= 4.3
+  and at least 300 reviews to cart, open cart, and return exactly 5 lines from cart
+  page only: (1) product title, (2) unit price, (3) cart item count, (4) shipping text
+  if shown, (5) cart subtotal. If any field is missing, fail.",walmart.com,ok,10,112.76,fcd01ec3-0fb4-df80-6238-36c08e2e2461,True,True,,0,0,0,0.0,12,0.332,7,"(1) KOORUI 27\"" FHD 1080P Gaming Monitor, 144Hz Computer Monitor, New, E2711K\n(2) $99.64\n(3) 1 item\n(4) Free shipping\n(5) $99.64",
+13,"On walmart.com, search for
+  '27 inch monitor', add the cheapest in-stock non-sponsored item with rating >= 4.3
+  and at least 300 reviews to cart, open cart, and return exactly 5 lines from cart
+  page only: (1) product title, (2) unit price, (3) cart item count, (4) shipping text
+  if shown, (5) cart subtotal. If any field is missing, fail.",walmart.com,ok,10,117.033,ce0df945-8336-cbf7-3574-c52b9d59e1af,True,True,,0,0,0,0.0,13,0.316,7,"(1) KOORUI 27\"" FHD 1080P Gaming Monitor, 144Hz Computer Monitor, New, E2711K\n(2) $99.64\n(3) 1 item\n(4) Free shipping\n(5) $99.64",
+14,"On walmart.com, search for
+  '27 inch monitor', add the cheapest in-stock non-sponsored item with rating >= 4.3
+  and at least 300 reviews to cart, open cart, and return exactly 5 lines from cart
+  page only: (1) product title, (2) unit price, (3) cart item count, (4) shipping text
+  if shown, (5) cart subtotal. If any field is missing, fail.",walmart.com,ok,10,114.213,6efde540-1193-b919-f869-4b32c6f29435,True,True,,0,0,0,0.0,14,0.303,7,"KOORUI 27\"" FHD 1080P Gaming Monitor, 144Hz Computer Monitor, New, E2711K\n$99.64\n1 item\nFree shipping\n$99.64",
+15,"On walmart.com, search for
+  '27 inch monitor', add the cheapest in-stock non-sponsored item with rating >= 4.3
+  and at least 300 reviews to cart, open cart, and return exactly 5 lines from cart
+  page only: (1) product title, (2) unit price, (3) cart item count, (4) shipping text
+  if shown, (5) cart subtotal. If any field is missing, fail.",walmart.com,ok,9,106.049,5a7e302c-90fc-d455-de4e-443d50d962a3,True,True,,0,0,0,0.0,15,0.291,7,"(1) KOORUI 27\"" FHD 1080P Gaming Monitor, 144Hz Computer Monitor, New, E2711K\n(2) $99.64\n(3) 1 item\n(4) Free shipping\n(5) $99.64",
+16,"On walmart.com, search for
+  '27 inch monitor', add the cheapest in-stock non-sponsored item with rating >= 4.3
+  and at least 300 reviews to cart, open cart, and return exactly 5 lines from cart
+  page only: (1) product title, (2) unit price, (3) cart item count, (4) shipping text
+  if shown, (5) cart subtotal. If any field is missing, fail.",walmart.com,ok,11,116.791,36981c76-fd89-65ed-5f1a-65be88a2739b,True,True,,0,0,0,0.0,16,0.28,7,"(1) KOORUI 27\"" FHD 1080P Gaming Monitor, 144Hz Computer Monitor, New, E2711K\n(2) $99.64\n(3) 1 item\n(4) Free shipping\n(5) $99.64",
+17,"On walmart.com, search for
+  '27 inch monitor', add the cheapest in-stock non-sponsored item with rating >= 4.3
+  and at least 300 reviews to cart, open cart, and return exactly 5 lines from cart
+  page only: (1) product title, (2) unit price, (3) cart item count, (4) shipping text
+  if shown, (5) cart subtotal. If any field is missing, fail.",walmart.com,ok,8,98.766,0dead3ce-104f-7efb-c242-7bfd2db1d9e1,True,True,,0,0,0,0.0,17,0.326,7,"(1) KOORUI 27\"" FHD 1080P Gaming Monitor, 144Hz Computer Monitor, New, E2711K\n(2) $99.64\n(3) 1 item\n(4) Free shipping\n(5) $99.64",
+18,"On walmart.com, search for
+  '27 inch monitor', add the cheapest in-stock non-sponsored item with rating >= 4.3
+  and at least 300 reviews to cart, open cart, and return exactly 5 lines from cart
+  page only: (1) product title, (2) unit price, (3) cart item count, (4) shipping text
+  if shown, (5) cart subtotal. If any field is missing, fail.",walmart.com,ok,8,113.697,86727db4-c406-388c-2e2f-ad9df78036d1,True,True,,0,0,0,0.0,18,0.316,7,"(1) KOORUI 27\"" FHD 1080P Gaming Monitor, 144Hz Computer Monitor, New, E2711K\n(2) $99.64\n(3) 1 item\n(4) Free shipping\n(5) $99.64",
+19,"On walmart.com, search for
+  '27 inch monitor', add the cheapest in-stock non-sponsored item with rating >= 4.3
+  and at least 300 reviews to cart, open cart, and return exactly 5 lines from cart
+  page only: (1) product title, (2) unit price, (3) cart item count, (4) shipping text
+  if shown, (5) cart subtotal. If any field is missing, fail.",walmart.com,ok,9,96.821,6e1b6ab2-fd30-204d-ffc9-ea269307a2e0,True,True,,0,0,0,0.0,19,0.308,7,"(1) KOORUI 27\"" FHD 1080P Gaming Monitor, 144Hz Computer Monitor, New, E2711K\n(2) $99.64\n(3) 1 item\n(4) Free shipping\n(5) $99.64",
+20,"On walmart.com, search for
+  '27 inch monitor', add the cheapest in-stock non-sponsored item with rating >= 4.3
+  and at least 300 reviews to cart, open cart, and return exactly 5 lines from cart
+  page only: (1) product title, (2) unit price, (3) cart item count, (4) shipping text
+  if shown, (5) cart subtotal. If any field is missing, fail.",walmart.com,ok,9,102.886,93ccade3-977c-5232-2ac4-e30811f83208,True,True,,0,0,0,0.0,20,0.3,7,"(1) KOORUI 27\"" FHD 1080P Gaming Monitor, 144Hz Computer Monitor, New, E2711K\n(2) $99.64\n(3) 1 item\n(4) Free shipping\n(5) $99.64",
+21,"On walmart.com, search for
+  '27 inch monitor', add the cheapest in-stock non-sponsored item with rating >= 4.3
+  and at least 300 reviews to cart, open cart, and return exactly 5 lines from cart
+  page only: (1) product title, (2) unit price, (3) cart item count, (4) shipping text
+  if shown, (5) cart subtotal. If any field is missing, fail.",walmart.com,ok,8,94.093,ba19a2f1-e45a-2c3a-6387-b2917e84aa71,True,True,,0,0,0,0.0,21,0.285,7,"(1) KOORUI 27\"" FHD 1080P Gaming Monitor, 144Hz Computer Monitor, New, E2711K\n(2) $99.64\n(3) 1 item\n(4) Free shipping\n(5) $99.64",
+22,"On walmart.com, search for
+  '27 inch monitor', add the cheapest in-stock non-sponsored item with rating >= 4.3
+  and at least 300 reviews to cart, open cart, and return exactly 5 lines from cart
+  page only: (1) product title, (2) unit price, (3) cart item count, (4) shipping text
+  if shown, (5) cart subtotal. If any field is missing, fail.",walmart.com,ok,8,118.803,e4818c39-f786-cda2-4c73-ae02c9bdb3ce,True,True,,0,0,0,0.0,22,0.272,7,"(1) CRUA 27 inch FHD 100Hz Curved Monitor for Office&Gaming, 1080P 1800R 100% sRGB Computer Monitor,Frameless Design, Blue Light Filter,VGA,HDMI-Black\n(2) $99.99\n(3) 1 item\n(4) Free shipping\n(5) $99.99",
+23,"On walmart.com, search for
+  '27 inch monitor', add the cheapest in-stock non-sponsored item with rating >= 4.3
+  and at least 300 reviews to cart, open cart, and return exactly 5 lines from cart
+  page only: (1) product title, (2) unit price, (3) cart item count, (4) shipping text
+  if shown, (5) cart subtotal. If any field is missing, fail.",walmart.com,ok,8,97.734,36f5dc33-a5ad-5c7d-2808-811a3544226d,True,True,,0,0,0,0.0,23,0.261,7,"(1) KOORUI 27\"" FHD 1080P Gaming Monitor, 144Hz Computer Monitor, New, E2711K\n(2) $99.64\n(3) 1 item\n(4) Free shipping\n(5) $99.64",
+24,"On walmart.com, search for
+  '27 inch monitor', add the cheapest in-stock non-sponsored item with rating >= 4.3
+  and at least 300 reviews to cart, open cart, and return exactly 5 lines from cart
+  page only: (1) product title, (2) unit price, (3) cart item count, (4) shipping text
+  if shown, (5) cart subtotal. If any field is missing, fail.",walmart.com,ok,10,133.745,a86c84c1-2d57-ed1b-12af-778ec3bdb602,True,True,,0,0,0,0.0,24,0.25,7,"(1) KOORUI 27\"" FHD 1080P Gaming Monitor, 144Hz Computer Monitor, New, E2711K\n(2) $99.64\n(3) 1 item\n(4) Free shipping\n(5) $99.64",
+25,"On walmart.com, search for
+  '27 inch monitor', add the cheapest in-stock non-sponsored item with rating >= 4.3
+  and at least 300 reviews to cart, open cart, and return exactly 5 lines from cart
+  page only: (1) product title, (2) unit price, (3) cart item count, (4) shipping text
+  if shown, (5) cart subtotal. If any field is missing, fail.",walmart.com,ok,9,121.091,a273e14c-85fb-f13e-558b-3466103a3cb9,True,True,,0,0,0,0.0,25,0.24,7,"(1) KOORUI 27\"" FHD 1080P Gaming Monitor, 144Hz Computer Monitor, New, E2711K\n(2) $99.64\n(3) 1 item\n(4) Free shipping\n(5) $99.64",

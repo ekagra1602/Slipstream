@@ -1,0 +1,47 @@
+run_idx,task,domain,status,steps,duration_s,trace_id,agent_success,judge_validated,judge_failure_reason,input_tokens,output_tokens,total_tokens,estimated_usd_cost,mongo_run_count,mongo_confidence,mongo_optimal_actions,final_result,error
+1,"On walmart.com, add the
+  cheapest in-stock wireless mouse with rating >= 4.0 and at least 100 reviews to cart,
+  then report exactly: (1) product title, (2) price, (3) rating text, (4) review count,
+  (5) cart item count, (6) cart subtotal.",walmart.com,ok,6,82.067,41676e01-1b43-0d4e-0d1f-f5bff4efdcea,True,True,,0,0,0,0.0,1,0.525,10,"(1) Product title: onn Wireless 5-button Mouse, 1600 DPI, 2.4 GHz USB-A Dongle, Gray, (2) Price: $8.88, (3) Rating text: 4.3, (4) Review count: 2,482, (5) Cart item count: 1, (6) Cart subtotal: $8.88",
+2,"On walmart.com, add the
+  cheapest in-stock wireless mouse with rating >= 4.0 and at least 100 reviews to cart,
+  then report exactly: (1) product title, (2) price, (3) rating text, (4) review count,
+  (5) cart item count, (6) cart subtotal.",walmart.com,ok,13,149.911,d2599a5d-cc1a-d591-126b-900e6fc5acdf,True,True,,0,0,0,0.0,2,0.542,22,"Successfully added the cheapest qualifying wireless mouse to the cart.\n(1) product title: onn Wireless 5-button Mouse, 1600 DPI, 2.4 GHz USB-A Dongle, Gray\n(2) price: $8.88\n(3) rating text: 4.3\n(4) review count: 2,482\n(5) cart item count: 1\n(6) cart subtotal: $8.88",
+3,"On walmart.com, add the
+  cheapest in-stock wireless mouse with rating >= 4.0 and at least 100 reviews to cart,
+  then report exactly: (1) product title, (2) price, (3) rating text, (4) review count,
+  (5) cart item count, (6) cart subtotal.",walmart.com,ok,15,151.812,2488ddc8-3cf6-51be-9256-9bbb5a3332fb,True,True,,0,0,0,0.0,3,0.568,9,"(1) Product title: onn Wireless Travel Mouse with 3 Buttons and Scroll Wheel, Wireless USB Receiver, White, (2) Price: $8.88, (3) Rating text: 4.3 stars out of 5, (4) Review count: 540, (5) Cart item count: 1, (6) Cart subtotal: $8.88",
+4,"On walmart.com, add the
+  cheapest in-stock wireless mouse with rating >= 4.0 and at least 100 reviews to cart,
+  then report exactly: (1) product title, (2) price, (3) rating text, (4) review count,
+  (5) cart item count, (6) cart subtotal.",walmart.com,ok,15,177.882,ca13fd0b-532c-0e4c-570e-3ad449968d18,True,True,,0,0,0,0.0,4,0.593,11,"(1) Product title: onn Wireless 5-button Mouse, 1600 DPI, 2.4 GHz USB-A Dongle, Gray\n(2) Price: $8.88\n(3) Rating text: 4.3 out of 5 Stars\n(4) Review count: 2482\n(5) Cart item count: 1 item\n(6) Cart subtotal: $8.88",
+5,"On walmart.com, add the
+  cheapest in-stock wireless mouse with rating >= 4.0 and at least 100 reviews to cart,
+  then report exactly: (1) product title, (2) price, (3) rating text, (4) review count,
+  (5) cart item count, (6) cart subtotal.",walmart.com,ok,13,142.482,02800d2e-fd03-1056-fc6e-6fe278b7fd9c,True,True,,0,0,0,0.0,5,0.619,8,"(1) Product title: onn Wireless 5-button Mouse, 1600 DPI, 2.4 GHz USB-A Dongle, Gray\n(2) Price: $8.88\n(3) Rating text: 4.3 out of 5 Stars\n(4) Review count: 2482\n(5) Cart item count: 1\n(6) Cart subtotal: $8.88",
+6,"On walmart.com, add the
+  cheapest in-stock wireless mouse with rating >= 4.0 and at least 100 reviews to cart,
+  then report exactly: (1) product title, (2) price, (3) rating text, (4) review count,
+  (5) cart item count, (6) cart subtotal.",walmart.com,ok,7,80.289,0b0c792e-bff3-2bb7-f9df-d1941ebb2217,True,True,,0,0,0,0.0,6,0.644,8,"(1) Product title: onn Wireless 5-button Mouse, 1600 DPI, 2.4 GHz USB-A Dongle, Gray, (2) Price: $8.88, (3) Rating text: 4.3 stars, (4) Review count: 2,482, (5) Cart item count: 1, (6) Cart subtotal: $8.88",
+7,"On walmart.com, add the
+  cheapest in-stock wireless mouse with rating >= 4.0 and at least 100 reviews to cart,
+  then report exactly: (1) product title, (2) price, (3) rating text, (4) review count,
+  (5) cart item count, (6) cart subtotal.",walmart.com,ok,16,151.986,96b456ea-a7c1-9d3d-e0a8-b2869e35f5c4,True,True,,0,0,0,0.0,7,0.67,8,"(1) Product title: onn Wireless 5-button Mouse, 1600 DPI, 2.4 GHz USB-A Dongle, Gray, (2) Price: $8.88, (3) Rating text: 4.3 stars, (4) Review count: 2,482, (5) Cart item count: 1, (6) Cart subtotal: $8.88",
+8,"On walmart.com, add the
+  cheapest in-stock wireless mouse with rating >= 4.0 and at least 100 reviews to cart,
+  then report exactly: (1) product title, (2) price, (3) rating text, (4) review count,
+  (5) cart item count, (6) cart subtotal.",walmart.com,ok,11,128.679,0082c3d4-a7b5-f3cd-f80e-eb171725d868,True,True,,0,0,0,0.0,8,0.695,8,"I have added the cheapest in-stock wireless mouse meeting your criteria to the cart. Here are the details:
+1. Product title: onn Wireless Travel Mouse with 3 Buttons and Scroll Wheel, Wireless USB Receiver, White
+2. Price: $8.88
+3. Rating text: 4.3 stars out of 5
+4. Review count: 540
+5. Cart item count: 1
+6. Cart subtotal: $8.88",
+9,"On walmart.com, add the
+  cheapest in-stock wireless mouse with rating >= 4.0 and at least 100 reviews to cart,
+  then report exactly: (1) product title, (2) price, (3) rating text, (4) review count,
+  (5) cart item count, (6) cart subtotal.",walmart.com,ok,8,101.993,5665e201-6cc3-7d19-4e77-b3607377a73a,True,True,,0,0,0,0.0,9,0.719,8,"(1) Product title: onn Wireless 5-button Mouse, 1600 DPI, 2.4 GHz USB-A Dongle, Gray\n(2) Price: $8.88\n(3) Rating text: 4.3 stars\n(4) Review count: 2,482\n(5) Cart item count: 1\n(6) Cart subtotal: $8.88",
+10,"On walmart.com, add the
+  cheapest in-stock wireless mouse with rating >= 4.0 and at least 100 reviews to cart,
+  then report exactly: (1) product title, (2) price, (3) rating text, (4) review count,
+  (5) cart item count, (6) cart subtotal.",walmart.com,ok,14,154.328,76511f8e-a0a6-266c-1e57-3e6264ffe1af,True,True,,0,0,0,0.0,10,0.744,8,"(1) product title: onn Wireless 5-button Mouse, 1600 DPI, 2.4 GHz USB-A Dongle, Gray, (2) price: $8.88, (3) rating text: 4.3 out of 5 Stars, (4) review count: 2,482 reviews, (5) cart item count: 1, (6) cart subtotal: $8.88",

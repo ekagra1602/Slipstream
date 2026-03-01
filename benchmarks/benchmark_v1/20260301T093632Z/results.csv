@@ -1,0 +1,54 @@
+run_idx,task,domain,status,steps,duration_s,trace_id,agent_success,judge_validated,judge_failure_reason,input_tokens,output_tokens,total_tokens,estimated_usd_cost,mongo_run_count,mongo_confidence,mongo_optimal_actions,final_result,error
+1,"On walmart.com, search for
+  'wireless mouse', add the cheapest in-stock non-sponsored item with rating >= 4.0 and
+  at least 100 reviews to cart, open cart, and return exactly 4 lines from cart page
+  only: (1) product title, (2) unit price, (3) cart item count, (4) cart subtotal. If
+  any field is missing, fail.",walmart.com,ok,7,85.895,dbec2773-12a3-edd2-4a63-26ffe3e74383,True,True,,0,0,0,0.0,,,,"onn Wireless 5-button Mouse, 1600 DPI, 2.4 GHz USB-A Dongle, Gray\n$8.88\n1\n$8.88",
+2,"On walmart.com, search for
+  'wireless mouse', add the cheapest in-stock non-sponsored item with rating >= 4.0 and
+  at least 100 reviews to cart, open cart, and return exactly 4 lines from cart page
+  only: (1) product title, (2) unit price, (3) cart item count, (4) cart subtotal. If
+  any field is missing, fail.",walmart.com,ok,7,83.651,e4c22e89-c0ba-ab8b-88c6-11154b83913f,True,True,,0,0,0,0.0,1,0.0,0,"onn Wireless 5-button Mouse, 1600 DPI, 2.4 GHz USB-A Dongle, Gray\n$8.88\n1\n$8.88",
+3,"On walmart.com, search for
+  'wireless mouse', add the cheapest in-stock non-sponsored item with rating >= 4.0 and
+  at least 100 reviews to cart, open cart, and return exactly 4 lines from cart page
+  only: (1) product title, (2) unit price, (3) cart item count, (4) cart subtotal. If
+  any field is missing, fail.",walmart.com,ok,8,100.846,94bfd993-c394-cfbd-0983-a4866363ec98,True,True,,0,0,0,0.0,2,0.275,15,"(1) onn Wireless 5-button Mouse, 1600 DPI, 2.4 GHz USB-A Dongle, Gray\n(2) $8.88\n(3) 1 item\n(4) $8.88",
+4,"On walmart.com, search for
+  'wireless mouse', add the cheapest in-stock non-sponsored item with rating >= 4.0 and
+  at least 100 reviews to cart, open cart, and return exactly 4 lines from cart page
+  only: (1) product title, (2) unit price, (3) cart item count, (4) cart subtotal. If
+  any field is missing, fail.",walmart.com,ok,6,80.766,d6eea5b2-c41d-f937-95b2-af7194b2f15e,True,True,,0,0,0,0.0,3,0.383,22,"(1) onn Wireless 5-button Mouse, 1600 DPI, 2.4 GHz USB-A Dongle, Gray\n(2) $8.88\n(3) 1 item\n(4) $8.88",
+5,"On walmart.com, search for
+  'wireless mouse', add the cheapest in-stock non-sponsored item with rating >= 4.0 and
+  at least 100 reviews to cart, open cart, and return exactly 4 lines from cart page
+  only: (1) product title, (2) unit price, (3) cart item count, (4) cart subtotal. If
+  any field is missing, fail.",walmart.com,ok,7,89.092,fe9fbec4-509f-8802-d637-ac7dd04f9404,True,True,,0,0,0,0.0,4,0.447,5,"(1) onn Wireless 5-button Mouse, 1600 DPI, 2.4 GHz USB-A Dongle, Gray\n(2) $8.88\n(3) 1 item\n(4) $8.88",
+6,"On walmart.com, search for
+  'wireless mouse', add the cheapest in-stock non-sponsored item with rating >= 4.0 and
+  at least 100 reviews to cart, open cart, and return exactly 4 lines from cart page
+  only: (1) product title, (2) unit price, (3) cart item count, (4) cart subtotal. If
+  any field is missing, fail.",walmart.com,ok,6,81.677,43c30244-ebe2-b8d2-249c-3fb3b8c28b60,True,True,,0,0,0,0.0,5,0.498,5,"(1) onn Wireless 5-button Mouse, 1600 DPI, 2.4 GHz USB-A Dongle, Gray\n(2) $8.88\n(3) 1 item\n(4) $8.88",
+7,"On walmart.com, search for
+  'wireless mouse', add the cheapest in-stock non-sponsored item with rating >= 4.0 and
+  at least 100 reviews to cart, open cart, and return exactly 4 lines from cart page
+  only: (1) product title, (2) unit price, (3) cart item count, (4) cart subtotal. If
+  any field is missing, fail.",walmart.com,ok,6,80.575,0295bf07-5f54-5512-6a99-1308878e7551,True,True,,0,0,0,0.0,6,0.538,5,"(1) onn Wireless 5-button Mouse, 1600 DPI, 2.4 GHz USB-A Dongle, Gray\n(2) $8.88\n(3) 1 item\n(4) $8.88",
+8,"On walmart.com, search for
+  'wireless mouse', add the cheapest in-stock non-sponsored item with rating >= 4.0 and
+  at least 100 reviews to cart, open cart, and return exactly 4 lines from cart page
+  only: (1) product title, (2) unit price, (3) cart item count, (4) cart subtotal. If
+  any field is missing, fail.",walmart.com,ok,7,91.974,5e328602-2fa8-3091-e249-a51439e3928a,True,True,,0,0,0,0.0,7,0.479,5,"(1) onn Wireless 5-button Mouse, 1600 DPI, 2.4 GHz USB-A Dongle, Gray\n(2) $8.88\n(3) 1 item\n(4) $8.88",
+9,"On walmart.com, search for
+  'wireless mouse', add the cheapest in-stock non-sponsored item with rating >= 4.0 and
+  at least 100 reviews to cart, open cart, and return exactly 4 lines from cart page
+  only: (1) product title, (2) unit price, (3) cart item count, (4) cart subtotal. If
+  any field is missing, fail.",walmart.com,ok,7,93.572,e4ed01c0-4573-7d35-1f33-03b743c25168,True,True,,0,0,0,0.0,8,0.435,5,"(1) onn Wireless 5-button Mouse, 1600 DPI, 2.4 GHz USB-A Dongle, Gray
+(2) $8.88
+(3) 1 item
+(4) $8.88",
+10,"On walmart.com, search for
+  'wireless mouse', add the cheapest in-stock non-sponsored item with rating >= 4.0 and
+  at least 100 reviews to cart, open cart, and return exactly 4 lines from cart page
+  only: (1) product title, (2) unit price, (3) cart item count, (4) cart subtotal. If
+  any field is missing, fail.",walmart.com,ok,7,84.11,085816a6-9fe7-b7bf-f443-c261d0619582,True,False,"The agent failed to provide the output in the requested 'exactly 4 lines' format, instead providing a single line string containing escape characters. Additionally, the agent relied on pre-cached/predicted data from a tool rather than extracting the live data from the cart page it navigated to.",0,0,0,0.0,9,0.4,5,"(1) onn Wireless 5-button Mouse, 1600 DPI, 2.4 GHz USB-A Dongle, Gray\n(2) $8.88\n(3) 1 item\n(4) $8.88",

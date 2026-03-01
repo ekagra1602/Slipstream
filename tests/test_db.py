@@ -62,15 +62,17 @@ class TestRecomputeOptimalPath:
         mock_collection.update_one.assert_not_called()
 
     def test_confidence_formula(self, mock_collection):
-        # 8 runs, 6 successes → success_rate=0.75, volume_factor=0.8
-        # confidence = 0.75*0.7 + 0.8*0.3 = 0.525 + 0.24 = 0.765
+        # New formula:
+        # volume_factor = run_count/20 = 8/20 = 0.4
+        # confidence = success_rate * (0.5 + 0.5*volume_factor)
+        #           = 0.75 * (0.5 + 0.2) = 0.75 * 0.7 = 0.525
         mock_collection.find_one.return_value = self._make_doc(8, 6, {
             "click:btn": {"attempts": 6, "successes": 6},
         })
         _recompute_optimal_path(mock_collection, "t", "d")
         update_call = mock_collection.update_one.call_args
         confidence = update_call[0][1]["$set"]["confidence"]
-        assert confidence == 0.765
+        assert confidence == 0.525
 
     def test_confidence_capped_at_099(self, mock_collection):
         mock_collection.find_one.return_value = self._make_doc(100, 100, {
@@ -117,8 +119,11 @@ class TestRecomputeOptimalPath:
         set_doc = update_call[0][1]["$set"]
         assert set_doc["optimal_actions"] == []
         assert set_doc["step_traces"] == []
-        # confidence still computed: 3/5*0.7 + 0.5*0.3 = 0.42+0.15 = 0.57
-        assert set_doc["confidence"] == 0.57
+        # New formula:
+        # success_rate = 3/5 = 0.6
+        # volume_factor = 5/20 = 0.25
+        # confidence = 0.6 * (0.5 + 0.5*0.25) = 0.6 * 0.625 = 0.375
+        assert set_doc["confidence"] == 0.375
 
 
 # ---------------------------------------------------------------------------
@@ -208,8 +213,9 @@ class TestStoreTrace:
             "_step_counts": {},
         }
         store_trace("t", "d", [StepData("click", "btn")], success=True)
-        # find_one is called by _recompute_optimal_path and then again for event data
-        assert mock_collection.find_one.call_count == 2
+        # find_one is called for baseline metrics + recompute pass.
+        assert mock_collection.find_one.call_count >= 1
+        mock_collection.find_one.assert_any_call({"task": "t", "domain": "d"})
 
 
 # ---------------------------------------------------------------------------

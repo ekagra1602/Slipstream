@@ -384,7 +384,7 @@ def test_system_prompt():
         "says to follow optimal path",
         "follow them" in DOMBOT_SYSTEM_PROMPT,
     )
-    check("has 5 rules", DOMBOT_SYSTEM_PROMPT.count("\n1.") == 1 and "5." in DOMBOT_SYSTEM_PROMPT)
+    check("has 7 rules", DOMBOT_SYSTEM_PROMPT.count("\n1.") == 1 and "7." in DOMBOT_SYSTEM_PROMPT)
 
 
 # ── Test 10: Full lifecycle simulation ──────────────────────────────────────

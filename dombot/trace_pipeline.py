@@ -33,6 +33,25 @@ CONVERGENCE_MIN_RUNS = 5
 CONVERGENCE_MIN_SUCCESS_RATE = 0.6
 CONVERGENCE_PATH_CONSISTENCY = 0.5
 
+# If true, a negative browser-use judge verdict forces run success=False.
+REQUIRE_JUDGE_PASS = os.getenv("DOMBOT_REQUIRE_JUDGE_PASS", "1").strip().lower() not in {
+    "0",
+    "false",
+    "no",
+}
+
+# Efficiency filter: runs longer than (optimal_path_length + EFFICIENCY_SLACK) steps
+# do not update the optimal path or boost success-rate confidence.
+# They still increment run_count so volume grows honestly.
+EFFICIENCY_SLACK: int = int(os.getenv("DOMBOT_EFFICIENCY_SLACK", "3"))
+EFFICIENCY_FILTER_ENABLED: bool = os.getenv(
+    "DOMBOT_EFFICIENCY_FILTER", "1"
+).strip().lower() not in {"0", "false", "no"}
+
+_CAPTCHA_KEYWORDS = frozenset({
+    "captcha", "recaptcha", "challenge", "verify you are human", "i am not a robot",
+})
+
 # ---------------------------------------------------------------------------
 # Canonical models
 # ---------------------------------------------------------------------------
@@ -267,6 +286,105 @@ def determine_run_success(
     return True, False
 
 
+def apply_quality_gate_from_judge(
+    history,
+    success: bool,
+    partial: bool,
+) -> tuple[bool, bool]:
+    """Optionally gate run success based on browser-use judge verdict.
+
+    If judge verdict is explicitly False and gating is enabled, override
+    success/partial so the run does not reinforce confidence.
+    """
+    if not REQUIRE_JUDGE_PASS:
+        return success, partial
+
+    try:
+        is_validated = history.is_validated() if hasattr(history, "is_validated") else None
+        judgement = history.judgement() if hasattr(history, "judgement") else None
+    except Exception:
+        return success, partial
+
+    if is_validated is False:
+        reason = ""
+        if isinstance(judgement, dict) and judgement.get("failure_reason"):
+            reason = f" reason={judgement.get('failure_reason')!r}"
+        logger.info("Quality gate: judge verdict FAIL -> forcing run failure.%s", reason)
+        return False, False
+
+    return success, partial
+
+
+# ---------------------------------------------------------------------------
+# Efficiency filter
+# ---------------------------------------------------------------------------
+
+
+def _count_effective_steps(steps: list[NormalizedStep]) -> int:
+    """Steps that reflect planner decisions, excluding synthetic done markers."""
+    return sum(1 for s in steps if s.action_type != "done")
+
+
+def _has_captcha_noise(steps: list[NormalizedStep]) -> bool:
+    """Return True if any step shows CAPTCHA handling.
+
+    CAPTCHA steps are environment noise, not planner waste — the filter should
+    not penalise runs for them.
+    """
+    for s in steps:
+        combined = " ".join([
+            s.action_type, s.target, s.value or "", s.raw_output,
+        ]).lower()
+        if any(kw in combined for kw in _CAPTCHA_KEYWORDS):
+            return True
+    return False
+
+
+def _check_efficiency(
+    steps: list[NormalizedStep],
+    task: str,
+    domain: str,
+) -> tuple[bool, str]:
+    """Check whether this run is within the efficiency budget.
+
+    Budget = len(prior.optimal_actions) + EFFICIENCY_SLACK.
+
+    Returns (ok, reason) where reason is a log-friendly string.
+
+    Rules:
+    - Filter disabled via env var → always ok.
+    - CAPTCHA detected → always ok (external noise).
+    - No prior optimal path (cold start) → always ok.
+    - effective_steps <= budget → ok.
+    - effective_steps > budget → not ok; run counted but path NOT updated.
+    """
+    if not EFFICIENCY_FILTER_ENABLED:
+        return True, "filter disabled"
+
+    if _has_captcha_noise(steps):
+        return True, "CAPTCHA detected — noise exemption"
+
+    from dombot.db import query_context
+    prior = query_context(task, domain)
+    if prior is None or not prior.optimal_actions:
+        return True, "no prior path — cold start accepted"
+
+    optimal_len = len(prior.optimal_actions)
+    effective = _count_effective_steps(steps)
+    budget = optimal_len + EFFICIENCY_SLACK
+
+    if effective <= budget:
+        return True, (
+            f"{effective} steps ≤ budget {budget} "
+            f"(optimal={optimal_len} + slack={EFFICIENCY_SLACK})"
+        )
+
+    return False, (
+        f"{effective} steps > budget {budget} "
+        f"(optimal={optimal_len} + slack={EFFICIENCY_SLACK}) — path NOT updated"
+    )
+
+
 # ---------------------------------------------------------------------------
 # Full pipeline: extract → label → gate → handoff
 # ---------------------------------------------------------------------------
@@ -346,8 +464,8 @@ async def process_trace(
     # --- run-level success gate ---
     success, partial = determine_run_success(trace_status, steps)
     canonical_domain = canonicalize_domain(domain) or domain
-
     resolved_trace_id = trace_id or f"trace-{uuid.uuid4().hex}"
+    success, partial = apply_quality_gate_from_judge(history, success, partial)
 
     trace = NormalizedTrace(
         trace_id=resolved_trace_id,
@@ -368,7 +486,15 @@ async def process_trace(
         trace_id=trace.trace_id,
     )
 
-    status_label = "SUCCESS" if success else ("PARTIAL" if partial else "FAILED")
+    if success and not efficiency_ok:
+        status_label = "SUCCESS (bloated — path not updated)"
+    elif success:
+        status_label = "SUCCESS"
+    elif partial:
+        status_label = "PARTIAL"
+    else:
+        status_label = "FAILED"
+
     logger.info(
         "Pipeline complete: %s | %d steps | trace_id=%s",
         status_label, len(steps), trace.trace_id,
@@ -380,6 +506,23 @@ async def process_trace(
 # ---------------------------------------------------------------------------
 # Fallback: extract steps from browser-use AgentHistoryList
 # ---------------------------------------------------------------------------
+
+
+def _extract_final_result(history) -> str | None:
+    """Extract the agent's final answer from the last 'done' action in history."""
+    items = history.history if hasattr(history, "history") else (history or [])
+    for item in reversed(items):
+        if not (item.model_output and item.model_output.action):
+            continue
+        for action in item.model_output.action:
+            data = action.model_dump(exclude_unset=True)
+            if "done" in data:
+                done_info = data["done"]
+                if isinstance(done_info, dict):
+                    return done_info.get("text") or done_info.get("extracted_content")
+                if isinstance(done_info, str):
+                    return done_info
+    return None
 
 
 def _history_has_done(history) -> bool:

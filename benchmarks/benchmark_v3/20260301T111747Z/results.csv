@@ -1,0 +1,211 @@
+run_idx,task,domain,status,steps,duration_s,trace_id,agent_success,judge_validated,judge_failure_reason,input_tokens,output_tokens,total_tokens,estimated_usd_cost,mongo_run_count,mongo_confidence,mongo_optimal_actions,final_result,error
+1,"On walmart.com, complete
+  two additions in one run. First, search for 'wireless mouse' and add the cheapest in-
+  stock non-sponsored item with rating >= 4.0 and at least 100 reviews to cart. Then
+  search for 'wireless keyboard' and add the cheapest in-stock non-sponsored item with
+  rating >= 4.2 and at least 300 reviews to cart. Open cart and return exactly 6 lines
+  from cart page only: (1) first item title, (2) second item title, (3) first item unit
+  price, (4) second item unit price, (5) cart item count, (6) cart subtotal. If any
+  field is missing, fail.",walmart.com,ok,11,132.515,8891ab73-6c85-d0fc-265a-a1e093f61f22,True,True,,0,0,0,0.0,1,0.0,0,"onn Wireless 5-button Mouse, 1600 DPI, 2.4 GHz USB-A Dongle, Gray\nonn Mini Compact Wireless Office Keyboard USB Receiver, 78 Keys, Grey\n$8.88\n$14.88\n2\n$23.76",
+2,"On walmart.com, complete
+  two additions in one run. First, search for 'wireless mouse' and add the cheapest in-
+  stock non-sponsored item with rating >= 4.0 and at least 100 reviews to cart. Then
+  search for 'wireless keyboard' and add the cheapest in-stock non-sponsored item with
+  rating >= 4.2 and at least 300 reviews to cart. Open cart and return exactly 6 lines
+  from cart page only: (1) first item title, (2) second item title, (3) first item unit
+  price, (4) second item unit price, (5) cart item count, (6) cart subtotal. If any
+  field is missing, fail.",walmart.com,ok,27,294.633,77c13178-857a-c3d9-3dd5-09c48bbcbd57,True,True,,0,0,0,0.0,2,0.275,34,"onn Mini Compact Wireless Office Keyboard USB Receiver, 78 Keys, Grey\nonn Wireless 5-button Mouse, 1600 DPI, 2.4 GHz USB-A Dongle, Gray\n$14.88\n$8.88\n2 items\n$23.76",
+3,"On walmart.com, complete
+  two additions in one run. First, search for 'wireless mouse' and add the cheapest in-
+  stock non-sponsored item with rating >= 4.0 and at least 100 reviews to cart. Then
+  search for 'wireless keyboard' and add the cheapest in-stock non-sponsored item with
+  rating >= 4.2 and at least 300 reviews to cart. Open cart and return exactly 6 lines
+  from cart page only: (1) first item title, (2) second item title, (3) first item unit
+  price, (4) second item unit price, (5) cart item count, (6) cart subtotal. If any
+  field is missing, fail.",walmart.com,ok,12,150.893,15c16ce9-fb90-0fc7-4fdf-1c2915d8058c,True,True,,0,0,0,0.0,3,0.383,44,"onn Wireless 5-button Mouse, 1600 DPI, 2.4 GHz USB-A Dongle, Gray\nonn Mini Compact Wireless Office Keyboard USB Receiver, 78 Keys, Grey\n$8.88\n$14.88\n2 items\n$23.76",
+4,"On walmart.com, complete
+  two additions in one run. First, search for 'wireless mouse' and add the cheapest in-
+  stock non-sponsored item with rating >= 4.0 and at least 100 reviews to cart. Then
+  search for 'wireless keyboard' and add the cheapest in-stock non-sponsored item with
+  rating >= 4.2 and at least 300 reviews to cart. Open cart and return exactly 6 lines
+  from cart page only: (1) first item title, (2) second item title, (3) first item unit
+  price, (4) second item unit price, (5) cart item count, (6) cart subtotal. If any
+  field is missing, fail.",walmart.com,ok,13,151.132,06d060b5-30cb-4b0b-93df-f8186aa9c22a,True,True,,0,0,0,0.0,4,0.45,10,"onn Mini Wireless Office Keyboard with USB Receiver, Pearl Blush Pink\nonn Wireless 5-button Mouse, 1600 DPI, 2.4 GHz USB-A Dongle, Gray\n$14.88\n$8.88\n2 items\n$23.76",
+5,"On walmart.com, complete
+  two additions in one run. First, search for 'wireless mouse' and add the cheapest in-
+  stock non-sponsored item with rating >= 4.0 and at least 100 reviews to cart. Then
+  search for 'wireless keyboard' and add the cheapest in-stock non-sponsored item with
+  rating >= 4.2 and at least 300 reviews to cart. Open cart and return exactly 6 lines
+  from cart page only: (1) first item title, (2) second item title, (3) first item unit
+  price, (4) second item unit price, (5) cart item count, (6) cart subtotal. If any
+  field is missing, fail.",walmart.com,ok,10,149.09,1b4ed956-8601-00de-c72a-483fd415b22c,True,True,,0,0,0,0.0,5,0.375,10,"onn Wireless Travel Mouse with 3 Buttons and Scroll Wheel, Wireless USB Receiver, White\nonn Mini Compact Wireless Office Keyboard USB Receiver, 78 Keys, Grey\n$8.88\n$14.88\n2\n$23.76",
+6,"On walmart.com, complete
+  two additions in one run. First, search for 'wireless mouse' and add the cheapest in-
+  stock non-sponsored item with rating >= 4.0 and at least 100 reviews to cart. Then
+  search for 'wireless keyboard' and add the cheapest in-stock non-sponsored item with
+  rating >= 4.2 and at least 300 reviews to cart. Open cart and return exactly 6 lines
+  from cart page only: (1) first item title, (2) second item title, (3) first item unit
+  price, (4) second item unit price, (5) cart item count, (6) cart subtotal. If any
+  field is missing, fail.",walmart.com,ok,13,198.225,5149f8d7-a5d8-efb4-eed3-053c1e8e71b9,True,True,,0,0,0,0.0,6,0.325,10,"onn Wireless 5-button Mouse, 1600 DPI, 2.4 GHz USB-A Dongle, Gray\nonn Mini Compact Wireless Office Keyboard USB Receiver, 78 Keys, Grey\n$8.88\n$14.88\n2\n$23.76",
+7,"On walmart.com, complete
+  two additions in one run. First, search for 'wireless mouse' and add the cheapest in-
+  stock non-sponsored item with rating >= 4.0 and at least 100 reviews to cart. Then
+  search for 'wireless keyboard' and add the cheapest in-stock non-sponsored item with
+  rating >= 4.2 and at least 300 reviews to cart. Open cart and return exactly 6 lines
+  from cart page only: (1) first item title, (2) second item title, (3) first item unit
+  price, (4) second item unit price, (5) cart item count, (6) cart subtotal. If any
+  field is missing, fail.",walmart.com,ok,9,124.68,f023f298-e536-d1e9-79ca-a09abe1140c2,True,True,,0,0,0,0.0,7,0.289,10,"onn Wireless 5-button Mouse, 1600 DPI, 2.4 GHz USB-A Dongle, Gray\nonn Mini Compact Wireless Office Keyboard USB Receiver, 78 Keys, Grey\n$8.88\n$14.88\n2 items\n$23.76",
+8,"On walmart.com, complete
+  two additions in one run. First, search for 'wireless mouse' and add the cheapest in-
+  stock non-sponsored item with rating >= 4.0 and at least 100 reviews to cart. Then
+  search for 'wireless keyboard' and add the cheapest in-stock non-sponsored item with
+  rating >= 4.2 and at least 300 reviews to cart. Open cart and return exactly 6 lines
+  from cart page only: (1) first item title, (2) second item title, (3) first item unit
+  price, (4) second item unit price, (5) cart item count, (6) cart subtotal. If any
+  field is missing, fail.",walmart.com,ok,13,177.877,e1083ec1-5dab-94db-f5de-308121650e2a,True,True,,0,0,0,0.0,8,0.262,10,"onn Mini Compact Wireless Office Keyboard USB Receiver, 78 Keys, Grey\nonn Wireless 5-button Mouse, 1600 DPI, 2.4 GHz USB-A Dongle, Gray\n$14.88\n$8.88\n2 items\n$23.76",
+9,"On walmart.com, complete
+  two additions in one run. First, search for 'wireless mouse' and add the cheapest in-
+  stock non-sponsored item with rating >= 4.0 and at least 100 reviews to cart. Then
+  search for 'wireless keyboard' and add the cheapest in-stock non-sponsored item with
+  rating >= 4.2 and at least 300 reviews to cart. Open cart and return exactly 6 lines
+  from cart page only: (1) first item title, (2) second item title, (3) first item unit
+  price, (4) second item unit price, (5) cart item count, (6) cart subtotal. If any
+  field is missing, fail.",walmart.com,ok,13,157.647,f1be14c9-7c0b-3571-b5c6-3ff940fe41e9,True,True,,0,0,0,0.0,9,0.242,10,"onn Wireless 5-button Mouse, 1600 DPI, 2.4 GHz USB-A Dongle, Gray\nonn Mini Wireless Office Keyboard with USB Receiver, Pearl Blush Pink\n$8.88\n$14.88\n2 items\n$23.76",
+10,"On walmart.com, complete
+  two additions in one run. First, search for 'wireless mouse' and add the cheapest in-
+  stock non-sponsored item with rating >= 4.0 and at least 100 reviews to cart. Then
+  search for 'wireless keyboard' and add the cheapest in-stock non-sponsored item with
+  rating >= 4.2 and at least 300 reviews to cart. Open cart and return exactly 6 lines
+  from cart page only: (1) first item title, (2) second item title, (3) first item unit
+  price, (4) second item unit price, (5) cart item count, (6) cart subtotal. If any
+  field is missing, fail.",walmart.com,ok,13,151.015,ac803c5b-2e29-93bf-f2e8-6407dda16f4f,True,True,,0,0,0,0.0,10,0.225,10,"onn Wireless 5-button Mouse, 1600 DPI, 2.4 GHz USB-A Dongle, Gray\nonn Mini Compact Wireless Office Keyboard USB Receiver, 78 Keys, Grey\n$8.88\n$14.88\n2 items\n$23.76",
+11,"On walmart.com, complete
+  two additions in one run. First, search for 'wireless mouse' and add the cheapest in-
+  stock non-sponsored item with rating >= 4.0 and at least 100 reviews to cart. Then
+  search for 'wireless keyboard' and add the cheapest in-stock non-sponsored item with
+  rating >= 4.2 and at least 300 reviews to cart. Open cart and return exactly 6 lines
+  from cart page only: (1) first item title, (2) second item title, (3) first item unit
+  price, (4) second item unit price, (5) cart item count, (6) cart subtotal. If any
+  field is missing, fail.",walmart.com,ok,8,135.446,d53d317a-4270-17bd-58a7-23f31be2eac7,True,True,,0,0,0,0.0,11,0.211,10,"onn Mini Wireless Office Keyboard with USB Receiver, Pearl Blush Pink\nonn Wireless 5-button Mouse, 1600 DPI, 2.4 GHz USB-A Dongle, Gray\n$14.88\n$8.88\n2 items\n$23.76",
+12,"On walmart.com, complete
+  two additions in one run. First, search for 'wireless mouse' and add the cheapest in-
+  stock non-sponsored item with rating >= 4.0 and at least 100 reviews to cart. Then
+  search for 'wireless keyboard' and add the cheapest in-stock non-sponsored item with
+  rating >= 4.2 and at least 300 reviews to cart. Open cart and return exactly 6 lines
+  from cart page only: (1) first item title, (2) second item title, (3) first item unit
+  price, (4) second item unit price, (5) cart item count, (6) cart subtotal. If any
+  field is missing, fail.",walmart.com,ok,13,180.421,b2fd30ab-f164-76d4-8f84-230e6637de86,True,True,,0,0,0,0.0,12,0.2,10,"onn Wireless 5-button Mouse, 1600 DPI, 2.4 GHz USB-A Dongle, Gray
+onn Mini Wireless Office Keyboard with USB Receiver, Pearl Blush Pink
+$8.88
+$14.88
+2 items
+$23.76",
+13,"On walmart.com, complete
+  two additions in one run. First, search for 'wireless mouse' and add the cheapest in-
+  stock non-sponsored item with rating >= 4.0 and at least 100 reviews to cart. Then
+  search for 'wireless keyboard' and add the cheapest in-stock non-sponsored item with
+  rating >= 4.2 and at least 300 reviews to cart. Open cart and return exactly 6 lines
+  from cart page only: (1) first item title, (2) second item title, (3) first item unit
+  price, (4) second item unit price, (5) cart item count, (6) cart subtotal. If any
+  field is missing, fail.",walmart.com,ok,12,160.328,b4ef4cc1-236e-0d8a-e2de-2bca417fef9e,True,True,,0,0,0,0.0,13,0.19,10,"onn Wireless 5-button Mouse, 1600 DPI, 2.4 GHz USB-A Dongle, Gray\nonn Mini Wireless Office Keyboard with USB Receiver, Pearl Blush Pink\n$8.88\n$14.88\n2 items\n$23.76",
+14,"On walmart.com, complete
+  two additions in one run. First, search for 'wireless mouse' and add the cheapest in-
+  stock non-sponsored item with rating >= 4.0 and at least 100 reviews to cart. Then
+  search for 'wireless keyboard' and add the cheapest in-stock non-sponsored item with
+  rating >= 4.2 and at least 300 reviews to cart. Open cart and return exactly 6 lines
+  from cart page only: (1) first item title, (2) second item title, (3) first item unit
+  price, (4) second item unit price, (5) cart item count, (6) cart subtotal. If any
+  field is missing, fail.",walmart.com,ok,13,190.732,0ec335f2-b7fd-9278-dc79-f77cda8a86d2,True,True,,0,0,0,0.0,14,0.182,10,"onn Wireless 5-button Mouse, 1600 DPI, 2.4 GHz USB-A Dongle, Gray\nonn Mini Wireless Office Keyboard with USB Receiver, Pearl Blush Pink\n$8.88\n$14.88\n2 items\n$23.76",
+15,"On walmart.com, complete
+  two additions in one run. First, search for 'wireless mouse' and add the cheapest in-
+  stock non-sponsored item with rating >= 4.0 and at least 100 reviews to cart. Then
+  search for 'wireless keyboard' and add the cheapest in-stock non-sponsored item with
+  rating >= 4.2 and at least 300 reviews to cart. Open cart and return exactly 6 lines
+  from cart page only: (1) first item title, (2) second item title, (3) first item unit
+  price, (4) second item unit price, (5) cart item count, (6) cart subtotal. If any
+  field is missing, fail.",walmart.com,ok,12,138.256,19545a35-1ee7-da99-6123-c538361bee75,True,True,,0,0,0,0.0,15,0.175,10,"onn Wireless 5-button Mouse, 1600 DPI, 2.4 GHz USB-A Dongle, Gray\nonn Mini Compact Wireless Office Keyboard USB Receiver, 78 Keys, Grey\n$8.88\n$14.88\n2 items\n$23.76",
+16,"On walmart.com, complete
+  two additions in one run. First, search for 'wireless mouse' and add the cheapest in-
+  stock non-sponsored item with rating >= 4.0 and at least 100 reviews to cart. Then
+  search for 'wireless keyboard' and add the cheapest in-stock non-sponsored item with
+  rating >= 4.2 and at least 300 reviews to cart. Open cart and return exactly 6 lines
+  from cart page only: (1) first item title, (2) second item title, (3) first item unit
+  price, (4) second item unit price, (5) cart item count, (6) cart subtotal. If any
+  field is missing, fail.",walmart.com,ok,11,126.499,f5e0c942-589c-f20f-d6f7-1081f1b8b8b2,True,True,,0,0,0,0.0,16,0.169,10,"onn Wireless Travel Mouse with 3 Buttons and Scroll Wheel, Wireless USB Receiver, White\nonn Mini Wireless Office Keyboard with USB Receiver, Pearl Blush Pink\n$8.88\n$14.88\n2 items\n$23.76",
+17,"On walmart.com, complete
+  two additions in one run. First, search for 'wireless mouse' and add the cheapest in-
+  stock non-sponsored item with rating >= 4.0 and at least 100 reviews to cart. Then
+  search for 'wireless keyboard' and add the cheapest in-stock non-sponsored item with
+  rating >= 4.2 and at least 300 reviews to cart. Open cart and return exactly 6 lines
+  from cart page only: (1) first item title, (2) second item title, (3) first item unit
+  price, (4) second item unit price, (5) cart item count, (6) cart subtotal. If any
+  field is missing, fail.",walmart.com,ok,10,144.489,8efb6adf-7713-00d8-5f71-bd5d79f2d008,True,False,"The agent provided a final output based on a 'Past successful result' suggestion from a tool rather than extracting the information from the current page. Additionally, the final screenshot of the cart shows that the item details and prices failed to load/render, making it impossible for the agent t",0,0,0,0.0,17,0.163,10,"onn Mini Wireless Office Keyboard with USB Receiver, Pearl Blush Pink\nonn Wireless 5-button Mouse, 1600 DPI, 2.4 GHz USB-A Dongle, Gray\n$14.88\n$8.88\n2 items\n$23.76",
+18,"On walmart.com, complete
+  two additions in one run. First, search for 'wireless mouse' and add the cheapest in-
+  stock non-sponsored item with rating >= 4.0 and at least 100 reviews to cart. Then
+  search for 'wireless keyboard' and add the cheapest in-stock non-sponsored item with
+  rating >= 4.2 and at least 300 reviews to cart. Open cart and return exactly 6 lines
+  from cart page only: (1) first item title, (2) second item title, (3) first item unit
+  price, (4) second item unit price, (5) cart item count, (6) cart subtotal. If any
+  field is missing, fail.",walmart.com,ok,12,170.024,70125e1a-78e7-7a9d-a33b-d36de56d89d6,True,True,,0,0,0,0.0,18,0.158,10,"onn Wireless 5-button Mouse, 1600 DPI, 2.4 GHz USB-A Dongle, Gray\nonn Mini Compact Wireless Office Keyboard USB Receiver, 78 Keys, Grey\n$8.88\n$14.88\n2 items\n$23.76",
+19,"On walmart.com, complete
+  two additions in one run. First, search for 'wireless mouse' and add the cheapest in-
+  stock non-sponsored item with rating >= 4.0 and at least 100 reviews to cart. Then
+  search for 'wireless keyboard' and add the cheapest in-stock non-sponsored item with
+  rating >= 4.2 and at least 300 reviews to cart. Open cart and return exactly 6 lines
+  from cart page only: (1) first item title, (2) second item title, (3) first item unit
+  price, (4) second item unit price, (5) cart item count, (6) cart subtotal. If any
+  field is missing, fail.",walmart.com,ok,12,158.961,22d23e8a-dc9e-61bd-eefa-2e7c2e2e1f3d,True,True,,0,0,0,0.0,19,0.154,10,"onn Wireless Travel Mouse with 3 Buttons and Scroll Wheel, Wireless USB Receiver, White
+onn Mini Wireless Office Keyboard with USB Receiver, Pearl Blush Pink
+$8.88
+$14.88
+2 items
+$23.76",
+20,"On walmart.com, complete
+  two additions in one run. First, search for 'wireless mouse' and add the cheapest in-
+  stock non-sponsored item with rating >= 4.0 and at least 100 reviews to cart. Then
+  search for 'wireless keyboard' and add the cheapest in-stock non-sponsored item with
+  rating >= 4.2 and at least 300 reviews to cart. Open cart and return exactly 6 lines
+  from cart page only: (1) first item title, (2) second item title, (3) first item unit
+  price, (4) second item unit price, (5) cart item count, (6) cart subtotal. If any
+  field is missing, fail.",walmart.com,ok,13,180.263,21e5ddef-43df-7823-041d-4c2abbfc733e,True,True,,0,0,0,0.0,20,0.15,10,"onn Mini Compact Wireless Office Keyboard USB Receiver, 78 Keys, Grey\nonn Wireless 5-button Mouse, 1600 DPI, 2.4 GHz USB-A Dongle, Gray\n$14.88\n$8.88\n2 items\n$23.76",
+21,"On walmart.com, complete
+  two additions in one run. First, search for 'wireless mouse' and add the cheapest in-
+  stock non-sponsored item with rating >= 4.0 and at least 100 reviews to cart. Then
+  search for 'wireless keyboard' and add the cheapest in-stock non-sponsored item with
+  rating >= 4.2 and at least 300 reviews to cart. Open cart and return exactly 6 lines
+  from cart page only: (1) first item title, (2) second item title, (3) first item unit
+  price, (4) second item unit price, (5) cart item count, (6) cart subtotal. If any
+  field is missing, fail.",walmart.com,ok,11,155.04,35bb1fbd-6de3-8c6b-23d8-7930b6e9baee,True,True,,0,0,0,0.0,21,0.143,10,"onn Mini Compact Wireless Office Keyboard USB Receiver, 78 Keys, Grey\nonn Wireless Travel Mouse with 3 Buttons and Scroll Wheel, Wireless USB Receiver, White\n$14.88\n$8.88\n2\n$23.76",
+22,"On walmart.com, complete
+  two additions in one run. First, search for 'wireless mouse' and add the cheapest in-
+  stock non-sponsored item with rating >= 4.0 and at least 100 reviews to cart. Then
+  search for 'wireless keyboard' and add the cheapest in-stock non-sponsored item with
+  rating >= 4.2 and at least 300 reviews to cart. Open cart and return exactly 6 lines
+  from cart page only: (1) first item title, (2) second item title, (3) first item unit
+  price, (4) second item unit price, (5) cart item count, (6) cart subtotal. If any
+  field is missing, fail.",walmart.com,ok,9,142.159,67ad638e-38c9-ee79-d6d9-04f780784105,True,True,,0,0,0,0.0,22,0.136,10,"(1) onn Mini Compact Wireless Office Keyboard USB Receiver, 78 Keys, Grey\n(2) onn Wireless Travel Mouse with 3 Buttons and Scroll Wheel, Wireless USB Receiver, White\n(3) $14.88\n(4) $8.88\n(5) 2 items\n(6) $23.76",
+23,"On walmart.com, complete
+  two additions in one run. First, search for 'wireless mouse' and add the cheapest in-
+  stock non-sponsored item with rating >= 4.0 and at least 100 reviews to cart. Then
+  search for 'wireless keyboard' and add the cheapest in-stock non-sponsored item with
+  rating >= 4.2 and at least 300 reviews to cart. Open cart and return exactly 6 lines
+  from cart page only: (1) first item title, (2) second item title, (3) first item unit
+  price, (4) second item unit price, (5) cart item count, (6) cart subtotal. If any
+  field is missing, fail.",walmart.com,ok,14,143.067,c21f0d6d-2e69-2f1a-f14c-1eb6c8ac5152,True,True,,0,0,0,0.0,23,0.13,10,"onn Mini Wireless Office Keyboard with USB Receiver, Pearl Blush Pink\nonn Wireless 5-button Mouse, 1600 DPI, 2.4 GHz USB-A Dongle, Gray\n$14.88\n$8.88\n2 items\n$23.76",
+24,"On walmart.com, complete
+  two additions in one run. First, search for 'wireless mouse' and add the cheapest in-
+  stock non-sponsored item with rating >= 4.0 and at least 100 reviews to cart. Then
+  search for 'wireless keyboard' and add the cheapest in-stock non-sponsored item with
+  rating >= 4.2 and at least 300 reviews to cart. Open cart and return exactly 6 lines
+  from cart page only: (1) first item title, (2) second item title, (3) first item unit
+  price, (4) second item unit price, (5) cart item count, (6) cart subtotal. If any
+  field is missing, fail.",walmart.com,ok,12,171.512,f160714b-1c7e-f79c-87a4-6012c1661879,True,True,,0,0,0,0.0,24,0.125,10,"onn Wireless 5-button Mouse, 1600 DPI, 2.4 GHz USB-A Dongle, Gray\nonn Mini Wireless Office Keyboard with USB Receiver, Pearl Blush Pink\n$8.88\n$14.88\n2 items\n$23.76",
+25,"On walmart.com, complete
+  two additions in one run. First, search for 'wireless mouse' and add the cheapest in-
+  stock non-sponsored item with rating >= 4.0 and at least 100 reviews to cart. Then
+  search for 'wireless keyboard' and add the cheapest in-stock non-sponsored item with
+  rating >= 4.2 and at least 300 reviews to cart. Open cart and return exactly 6 lines
+  from cart page only: (1) first item title, (2) second item title, (3) first item unit
+  price, (4) second item unit price, (5) cart item count, (6) cart subtotal. If any
+  field is missing, fail.",walmart.com,ok,14,146.753,811d975d-342f-2cc3-848a-a926544fd12f,True,True,,0,0,0,0.0,25,0.12,10,"onn Mini Wireless Office Keyboard with USB Receiver, Pearl Blush Pink\nonn Wireless 5-button Mouse, 1600 DPI, 2.4 GHz USB-A Dongle, Gray\n$14.88\n$8.88\n2 items\n$23.76",

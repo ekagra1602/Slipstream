@@ -105,6 +105,7 @@ async def main():
             browser = Browser(use_cloud=True)
             agent = Agent(
                 task=TASK,
+                model="bu-max",
                 browser=browser,
                 tools=tools,
                 extend_system_message=DOMBOT_SYSTEM_PROMPT,
@@ -136,6 +137,7 @@ async def main():
         browser = Browser(use_cloud=True)
         agent = Agent(
             task=TASK,
+            model="bu-max",
             browser=browser,
             tools=tools,
             extend_system_message=DOMBOT_SYSTEM_PROMPT,
