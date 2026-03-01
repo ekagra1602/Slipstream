@@ -1,1 +1,46 @@
+# Editor / local tooling
 .cursor/
+.vscode/
+.idea/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.venv/
+venv/
+.pytest_cache/
+
+# Node / JS
+node_modules/
+.npm/
+.pnpm-store/
+
+# Build / cache
+build/
+dist/
+.cache/
+.tmp/
+tmp/
+
+# Logs
+*.log
+logs/
+
+# Coverage
+.coverage
+coverage/
+
+# Databases / local state
+*.sqlite
+*.db
+
+# OS
+.DS_Store
+Thumbs.db
