@@ -1099,14 +1099,18 @@
 
   async function startIntroFromLanding() {
     if (
-      introGateState.started ||
       introGateState.phase === "fading" ||
       introGateState.phase === "running"
     ) {
       return;
     }
 
+    // Reset state for retries
     introGateState.started = true;
+    introGateState.phase = "landing";
+    introGateState.prewarmPromise = null;
+    introGateState.error = null;
+
     if (dom.landingCta) {
       dom.landingCta.disabled = true;
       dom.landingCta.textContent = "Initializing...";
