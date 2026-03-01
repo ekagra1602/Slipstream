@@ -1,7 +1,8 @@
 """
-Demo: Run a browser-use agent with DomBot tools.
+Demo: Run a browser-use agent with DomBot tools + Laminar trace pipeline.
 
-Visually confirms the agent calls dombot_query and dombot_report during a live run.
+Visually confirms the agent calls dombot_query and dombot_report during a live run,
+then processes the trace through the Laminar pipeline.
 
 Usage:
     # 1. Copy .env.example to .env and fill in your keys
@@ -38,11 +39,13 @@ logger = logging.getLogger("demo")
 
 from browser_use import Agent, Browser
 
-from dombot.db import get_step_log, get_trace_log, seed_task_node, store_trace
+from dombot.db import get_step_log, get_trace_log, seed_task_node
 from dombot.prompts import DOMBOT_SYSTEM_PROMPT
 from dombot.tools import tools
+from dombot.trace_pipeline import initialize_laminar, process_trace
 
 TASK = "Go to google.com and search for 'DomBot browser automation' and tell me the first result title"
+DOMAIN = "google.com"
 
 
 async def on_step(browser_state, model_output, step_number):
@@ -50,31 +53,6 @@ async def on_step(browser_state, model_output, step_number):
     if model_output and model_output.action:
         actions = [a.__class__.__name__ for a in model_output.action]
         logger.info(f"Agent step #{step_number}: {actions}")
-
-
-async def on_done(history):
-    """Post-run callback: store the full trace.
-
-    history is an AgentHistoryList — iterate history.history for AgentHistory items.
-    """
-    steps = []
-    items = history.history if hasattr(history, "history") else history
-
-    for item in items:
-        if item.model_output and item.model_output.action:
-            for action in item.model_output.action:
-                action_data = action.model_dump(exclude_unset=True)
-                action_name = next(iter(action_data.keys()), "unknown")
-                steps.append(
-                    {
-                        "action": action_name,
-                        "details": action_data.get(action_name, {}),
-                    }
-                )
-
-    success = len(items) > 0 and items[-1].model_output is not None
-    store_trace(task=TASK, domain="google.com", trace=steps, success=success)
-    logger.info(f"Trace stored: {len(steps)} steps, success={success}")
 
 
 async def main():
@@ -86,6 +64,9 @@ async def main():
         sys.exit(1)
 
     logger.info("BROWSER_USE_API_KEY loaded OK")
+
+    # ── Initialize Laminar (safe — no-ops if key is missing) ────────────────
+    initialize_laminar()
 
     # ── Optional: seed data so dombot_query returns something on first run ──
     # Comment this out to test the cold-start path instead.
@@ -103,29 +84,74 @@ async def main():
     )
     logger.info("Seeded demo data into mock DB")
 
-    # ── Run the agent ───────────────────────────────────────────────────────
-    # llm=None → browser-use uses its built-in ChatBrowserUse LLM (powered by BROWSERUSE_API_KEY)
-    # No separate OpenAI key needed.
-    browser = Browser(use_cloud=True)
+    # ── Build the agent with Laminar-wired on_done callback ─────────────────
+    # trace_id capture: on_done fires inside run_agent's @observe() span,
+    # so Laminar.get_trace_id() returns the active trace ID reliably.
 
-    agent = Agent(
-        task=TASK,
-        browser=browser,
-        tools=tools,
-        extend_system_message=DOMBOT_SYSTEM_PROMPT,
-        register_new_step_callback=on_step,
-        register_done_callback=on_done,
-    )
+    try:
+        from lmnr import Laminar as _Lmnr, observe
 
-    print()
-    print("=" * 60)
-    print(f"Task: {TASK}")
-    print(f"DomBot tools: dombot_query, dombot_report")
-    print(f"Watch for '>>> dombot_query called' and '>>> dombot_report called' in the logs")
-    print("=" * 60)
-    print()
+        @observe()
+        async def run_agent():
+            trace_id_holder: dict = {}
 
-    result = await agent.run()
+            async def on_done(history):
+                from lmnr import Laminar as _LmnrInner
+                trace_id_holder["id"] = _LmnrInner.get_trace_id()
+                tid = str(trace_id_holder["id"]) if trace_id_holder.get("id") else None
+                await process_trace(history, tid, TASK, DOMAIN)
+
+            browser = Browser(use_cloud=True)
+            agent = Agent(
+                task=TASK,
+                browser=browser,
+                tools=tools,
+                extend_system_message=DOMBOT_SYSTEM_PROMPT,
+                register_new_step_callback=on_step,
+                register_done_callback=on_done,
+            )
+
+            print()
+            print("=" * 60)
+            print(f"Task: {TASK}")
+            print(f"DomBot tools: dombot_query, dombot_report")
+            print(f"Laminar tracing: {'ENABLED' if trace_id_holder is not None else 'DISABLED'}")
+            print("=" * 60)
+            print()
+
+            result = await agent.run()
+            await browser.stop()
+            return result
+
+        result = await run_agent()
+
+    except ImportError:
+        # Laminar not installed — run without @observe wrapper
+        logger.warning("lmnr package not installed — running without Laminar tracing")
+
+        async def on_done_fallback(history):
+            await process_trace(history, None, TASK, DOMAIN)
+
+        browser = Browser(use_cloud=True)
+        agent = Agent(
+            task=TASK,
+            browser=browser,
+            tools=tools,
+            extend_system_message=DOMBOT_SYSTEM_PROMPT,
+            register_new_step_callback=on_step,
+            register_done_callback=on_done_fallback,
+        )
+
+        print()
+        print("=" * 60)
+        print(f"Task: {TASK}")
+        print(f"DomBot tools: dombot_query, dombot_report")
+        print(f"Laminar tracing: DISABLED (lmnr not installed)")
+        print("=" * 60)
+        print()
+
+        result = await agent.run()
+        await browser.stop()
 
     # ── Post-run summary ────────────────────────────────────────────────────
     print()
@@ -138,16 +164,17 @@ async def main():
     step_log = get_step_log()
     trace_log = get_trace_log()
 
-    print(f"DomBot steps recorded: {len(step_log)}")
+    print(f"DomBot steps recorded (via dombot_report): {len(step_log)}")
     for i, s in enumerate(step_log, 1):
         print(f"  {i}. [{s['action']}] {s['target']} — {'OK' if s['success'] else 'FAIL'}")
 
-    print(f"\nDomBot traces stored: {len(trace_log)}")
+    print(f"\nDomBot traces stored (via pipeline): {len(trace_log)}")
+    for t in trace_log:
+        label = "SUCCESS" if t["success"] else "FAILED"
+        print(f"  - {label} | {len(t['steps'])} steps")
 
     if result.final_result():
         print(f"\nAgent's answer: {result.final_result()}")
-
-    await browser.stop()
 
 
 if __name__ == "__main__":

@@ -26,21 +26,42 @@ Laminar.initialize(
 )
 ```
 
-Wrap agent runs with `@observe()` so the pipeline can capture the `trace_id`:
+Wrap `agent.run()` with `@observe()` and capture `trace_id` via closure into
+`register_done_callback` — the existing hook in `demo.py` that fires after every run:
 
 ```python
 from lmnr import Laminar, observe
 
 @observe()
-async def run_agent(task: str, domain: str):
-    agent = Agent(task=task, llm=llm)
-    history = await agent.run()
-    trace_id = Laminar.get_trace_id()  # capture while still inside the span
-    return history, trace_id
+async def run_agent(task: str, domain: str, tools, system_prompt: str):
+    trace_id_holder: dict = {}
+
+    async def on_done(history):
+        # Still inside the @observe() span — get_trace_id() works here
+        trace_id_holder["id"] = Laminar.get_trace_id()
+        await process_trace(history, trace_id_holder["id"], task, domain)
+
+    agent = Agent(
+        task=task,
+        browser=Browser(use_cloud=True),
+        tools=tools,
+        extend_system_message=system_prompt,
+        register_done_callback=on_done,
+    )
+    return await agent.run()
 ```
 
-**Trigger policy:** pipeline runs immediately after each `agent.run()` completes,
-inline in the same process. Not a separate batch job.
+**Trigger policy:** The pipeline is triggered exclusively via `register_done_callback`
+— the browser-use hook that fires at the end of every `agent.run()`. There is no
+separate scheduler, no polling, no post-hoc batch job. `demo.py` already wires this
+hook; the pipeline replaces the placeholder `on_done` body there.
+
+**`trace_id` capture guarantee:** `register_done_callback` fires synchronously before
+`agent.run()` returns, meaning it executes while still inside the `@observe()` span.
+`Laminar.get_trace_id()` reads the active OpenTelemetry context, which is still live
+at that point. The closure pattern (`trace_id_holder`) passes it out to the caller if
+needed for logging. Do not call `Laminar.get_trace_id()` after `agent.run()` returns
+— the span context will have been exited and it will return `None`.
 
 ---
 
@@ -199,6 +220,11 @@ def label_step(span: dict) -> NormalizedStep:
 
 Nathan computes and passes these to `store_trace()`. Eric owns final merge into MongoDB.
 
+**Grouping:** Nathan groups traces by exact `(domain, task)` string — no fuzzy
+matching, no intent normalization here. Grouping similar tasks across different phrasings
+(e.g. "buy a macbook" vs "purchase macbook") is handled by Eric's vector embedding layer,
+not by this pipeline.
+
 ```python
 CONVERGENCE_MIN_RUNS = 5          # don't promote until at least 5 successful runs
 CONVERGENCE_MIN_SUCCESS_RATE = 0.6
@@ -240,7 +266,7 @@ used for failure analysis but not promoted to `optimal_actions`.
 | File | What it does |
 |------|--------------|
 | `dombot/trace_pipeline.py` | All of the above: init, extract, label, converge, handoff |
-| `scripts/demo.py` | Wires agent run → pipeline → store_trace() end to end |
+| `scripts/demo.py` | Already exists — update `on_done` to call pipeline + add `@observe()` wrapper |
 
 ---
 
@@ -248,7 +274,7 @@ used for failure analysis but not promoted to `optimal_actions`.
 
 | Path | When | Purpose |
 |------|------|---------|
-| `dombot_report` (@controller.action) | Per step, live | Immediate operational data |
+| `dombot_report` (@tools.action) | Per step, live | Immediate operational data |
 | Laminar pipeline | After each `agent.run()` completes | Authoritative batch analysis for convergence |
 
 ---
