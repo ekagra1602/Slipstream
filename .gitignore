@@ -1,1 +1,46 @@
+# Editor / local tooling
 .cursor/
+.vscode/
+.idea/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.venv/
+venv/
+
+# Node
+node_modules/
+.npm/
+.pnpm-store/
+
+# Build / cache
+build/
+dist/
+.cache/
+.tmp/
+tmp/
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test / coverage artifacts
+.coverage
+coverage/
+.pytest_cache/
+
+# Local runtime outputs
+*.sqlite
+*.db
