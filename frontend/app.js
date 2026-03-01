@@ -150,6 +150,9 @@
 
   const dom = {
     graph: document.getElementById("graph"),
+    landingOverlay: document.getElementById("landing-overlay"),
+    landingCta: document.getElementById("landing-cta"),
+    landingStatus: document.getElementById("landing-status"),
     detailPanel: document.getElementById("detail-panel"),
     detailTitle: document.getElementById("detail-title"),
     detailDomain: document.getElementById("detail-domain"),
@@ -306,6 +309,9 @@
   const RUNTIME_FLAGS = {
     demoMock: RUNTIME_PARAMS.get("demoMock") === "1",
   };
+  const INTRO_GATE_CONFIG = {
+    fadeOutMs: 620,
+  };
 
   const MOCK_DEMO_CONFIG = {
     domainCount: 12,
@@ -419,6 +425,13 @@
     rand: null,
     autoTimerId: null,
     autoEnabled: false,
+  };
+
+  const introGateState = {
+    phase: "landing",
+    started: false,
+    prewarmPromise: null,
+    error: null,
   };
 
   const cameraState = {
@@ -903,8 +916,16 @@
       return cloneGraphPayload(mockState.graphStore);
     }
 
-    const res = await fetch("/api/graph");
-    return res.json();
+    try {
+      const res = await fetch("/api/graph");
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.warn("Live /api/graph unavailable, falling back to demoMock:", err);
+      mockState.enabled = true;
+      initializeMockDataset();
+      return cloneGraphPayload(mockState.graphStore);
+    }
   }
 
   async function fetchHistoryPayload() {
@@ -913,8 +934,16 @@
       return cloneHistoryPayload(mockState.historyStore);
     }
 
-    const res = await fetch("/api/graph/history");
-    return res.json();
+    try {
+      const res = await fetch("/api/graph/history");
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.warn("Live /api/graph/history unavailable, falling back to demoMock:", err);
+      mockState.enabled = true;
+      initializeMockDataset();
+      return cloneHistoryPayload(mockState.historyStore);
+    }
   }
 
   function getRuntimeDataSource() {
@@ -987,6 +1016,122 @@
 
   window.__slipstreamGetDataSource = getRuntimeDataSource;
   window.__slipstreamGetAnDemoSnapshot = buildDemoSnapshot;
+
+  let wsConnected = false;
+
+  function setLandingStatus(message, isError) {
+    if (!dom.landingStatus) return;
+    dom.landingStatus.textContent = message || "";
+    dom.landingStatus.style.color = isError ? "#cc7d7d" : "";
+  }
+
+  function setSceneUiEnabled(enabled) {
+    const interactiveControls = [
+      dom.btnSimulate,
+      dom.btnReplayGrowth,
+      dom.btnCinematic,
+      dom.chkAuto,
+      dom.timelineSlider,
+      dom.timelinePlay,
+    ];
+    interactiveControls.forEach((el) => {
+      if (!el) return;
+      el.disabled = !enabled;
+    });
+
+    if (dom.graph) {
+      dom.graph.style.pointerEvents = enabled ? "auto" : "none";
+    }
+  }
+
+  function fadeOutLandingOverlay() {
+    if (!dom.landingOverlay) {
+      introGateState.phase = "running";
+      document.body.classList.remove("scene-ready");
+      document.body.classList.add("scene-running");
+      return;
+    }
+
+    dom.landingOverlay.classList.add("landing-fade-out");
+    window.setTimeout(() => {
+      if (dom.landingOverlay && dom.landingOverlay.parentNode) {
+        dom.landingOverlay.parentNode.removeChild(dom.landingOverlay);
+      }
+      introGateState.phase = "running";
+      document.body.classList.remove("scene-ready");
+      document.body.classList.add("scene-running");
+    }, INTRO_GATE_CONFIG.fadeOutMs);
+  }
+
+  function primeScenePaused() {
+    if (introGateState.prewarmPromise) return introGateState.prewarmPromise;
+
+    introGateState.phase = "prewarming";
+    introGateState.error = null;
+    setLandingStatus("Staging network...");
+
+    introGateState.prewarmPromise = loadGraph()
+      .then(() => {
+        if (!mockState.enabled && !wsConnected) {
+          connectWS();
+          wsConnected = true;
+        }
+        introGateState.phase = "ready";
+        setLandingStatus("Network staged. Initialize when ready.");
+      })
+      .catch((err) => {
+        introGateState.prewarmPromise = null;
+        introGateState.phase = "failed";
+        introGateState.error =
+          err && err.message ? String(err.message) : "Graph prewarm failed";
+        setLandingStatus("Network staging failed. Retry initialization.", true);
+        throw err;
+      });
+
+    return introGateState.prewarmPromise;
+  }
+
+  async function startIntroFromLanding() {
+    if (
+      introGateState.started ||
+      introGateState.phase === "fading" ||
+      introGateState.phase === "running"
+    ) {
+      return;
+    }
+
+    introGateState.started = true;
+    if (dom.landingCta) {
+      dom.landingCta.disabled = true;
+      dom.landingCta.textContent = "Initializing...";
+    }
+    setLandingStatus("Initializing cinematic sequence...");
+
+    try {
+      await primeScenePaused();
+    } catch (err) {
+      introGateState.started = false;
+      if (dom.landingCta) {
+        dom.landingCta.disabled = false;
+        dom.landingCta.textContent = "Retry Initialize";
+      }
+      console.error("Landing initialization failed:", err);
+      return;
+    }
+
+    introGateState.phase = "fading";
+    document.body.classList.remove("scene-paused");
+    document.body.classList.add("scene-ready");
+    setSceneUiEnabled(true);
+
+    setCinematicEnabled(true);
+    startCameraIntro();
+    requestAnimationFrame(() => {
+      startReplayGrowth();
+    });
+
+    fadeOutLandingOverlay();
+  }
 
   // ---- Derived metrics and graph-state enrichment ----
   function computeDerivedMetrics() {
@@ -3012,6 +3157,7 @@
     applyContainment();
 
     const introRunning =
+      introGateState.started &&
       cameraState.cinematicEnabled &&
       !cameraState.userInteracted &&
       updateCameraIntro(nowMs);
@@ -3020,6 +3166,7 @@
     }
 
     if (
+      introGateState.started &&
       cameraState.cinematicEnabled &&
       !cameraState.userInteracted &&
       !introRunning
@@ -3050,9 +3197,11 @@
     } catch (err) {
       console.error("Graph init failed:", err);
     }
-    if (!initOk) return;
+    if (!initOk) {
+      throw new Error("Graph init failed");
+    }
     updateStats();
-    loadHistory();
+    await loadHistory();
   }
 
   async function loadHistory() {
@@ -3158,13 +3307,6 @@
     setupBloom();
     ensureEventBurstLayer();
     setupInputListeners();
-
-    // Intro starts at network center and smoothly pulls back to frame the map.
-    requestAnimationFrame(() => {
-      if (cameraState.cinematicEnabled) {
-        startCameraIntro();
-      }
-    });
 
     scheduleAmbientRebuild(1200);
     scheduleLabelUpdate();
@@ -3625,6 +3767,12 @@
     dom.detailPanel.classList.remove("open");
   });
 
+  if (dom.landingCta) {
+    dom.landingCta.addEventListener("click", () => {
+      startIntroFromLanding();
+    });
+  }
+
   setReplayControlsLocked(false);
 
   // ---- Timeline ----
@@ -3736,11 +3884,14 @@
   }
 
   // ---- Boot ----
-  loadGraph().then(() => {
-    if (!mockState.enabled) {
-      connectWS();
-    }
+  setSceneUiEnabled(false);
+  primeScenePaused().catch((err) => {
+    console.error("Scene prewarm failed:", err);
   });
+
+  if (!dom.landingCta) {
+    startIntroFromLanding();
+  }
 
   window.addEventListener("beforeunload", () => {
     if (mockState.enabled) setMockAutoSimulate(false);

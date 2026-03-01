@@ -13,7 +13,17 @@
     />
     <link rel="stylesheet" href="style.css" />
   </head>
-  <body>
+  <body class="scene-paused">
+    <!-- Landing overlay -->
+    <div id="landing-overlay">
+      <div id="landing-content">
+        <h1 id="landing-title">Slipstream</h1>
+        <p id="landing-subtitle">The live routing brain for web agents.</p>
+        <button id="landing-cta" type="button">Initialize Network</button>
+        <p id="landing-status" aria-live="polite"></p>
+      </div>
+    </div>
+
     <!-- Ask bar — top center -->
     <div id="ask-bar">
       <div id="ask-bar-pulse"></div>

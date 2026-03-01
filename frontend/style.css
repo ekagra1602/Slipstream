@@ -36,6 +36,124 @@ body {
   font-size: 13px;
 }
 
+/* ---- Landing overlay ---- */
+#landing-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #07080b;
+  opacity: 1;
+  transition: opacity 620ms var(--snap);
+}
+
+#landing-overlay.landing-fade-out {
+  opacity: 0;
+  pointer-events: none;
+}
+
+#landing-content {
+  width: min(92vw, 760px);
+  margin: 0 auto;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+#landing-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(48px, 10vw, 110px);
+  line-height: 0.95;
+  letter-spacing: 0.12em;
+  padding-left: 0.12em;
+  text-transform: uppercase;
+  color: #d4d8de;
+  text-shadow: 0 0 26px rgba(186, 198, 214, 0.2);
+}
+
+#landing-subtitle {
+  margin: 14px auto 0;
+  max-width: 560px;
+  color: #7f8a97;
+  font-size: clamp(12px, 2.3vw, 16px);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+#landing-cta {
+  margin-top: 32px;
+  padding: 12px 26px;
+  border: 1px solid rgba(172, 189, 210, 0.55);
+  background: rgba(16, 18, 23, 0.9);
+  color: #c2d1e0;
+  font-family: var(--font-display);
+  font-size: 14px;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    border-color 0.2s var(--snap),
+    background 0.2s var(--snap),
+    color 0.2s var(--snap),
+    transform 0.2s var(--snap);
+}
+
+#landing-cta:hover {
+  border-color: rgba(210, 224, 244, 0.72);
+  background: rgba(25, 29, 36, 0.92);
+  color: #dae8f7;
+}
+
+#landing-cta:active {
+  transform: scale(0.97);
+}
+
+#landing-cta:disabled {
+  opacity: 0.62;
+  cursor: wait;
+}
+
+#landing-status {
+  min-height: 18px;
+  margin-top: 14px;
+  color: #6f7884;
+  font-size: 11px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+/* Keep graph/UI paused until the intro CTA starts the scene. */
+body.scene-paused #graph,
+body.scene-paused #noise-overlay,
+body.scene-paused #stats-panel,
+body.scene-paused #detail-panel,
+body.scene-paused #timeline-panel,
+body.scene-paused #branding,
+body.scene-paused #demo-controls,
+body.scene-paused #ask-bar,
+body.scene-paused #chat-backdrop,
+body.scene-paused #chat-modal,
+body.scene-paused #warp-canvas {
+  opacity: 0;
+  pointer-events: none;
+}
+
+#graph,
+#noise-overlay,
+#stats-panel,
+#detail-panel,
+#timeline-panel,
+#branding,
+#demo-controls,
+#ask-bar {
+  transition: opacity 520ms var(--snap);
+}
+
 /* ---- Graph container ---- */
 #graph {
   position: fixed;
