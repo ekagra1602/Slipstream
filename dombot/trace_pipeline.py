@@ -361,6 +361,14 @@ async def process_trace(
         success=trace.success,
     )
 
+    # --- log to Convex for real-time analytics ---
+    try:
+        from dombot.convex_logger import log_run_to_convex
+
+        log_run_to_convex(trace)
+    except Exception:
+        logger.debug("Convex log skipped", exc_info=True)
+
     status_label = "SUCCESS" if success else ("PARTIAL" if partial else "FAILED")
     logger.info(
         "Pipeline complete: %s | %d steps | trace_id=%s",

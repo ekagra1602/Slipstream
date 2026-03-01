@@ -1,0 +1,19 @@
+{
+  "name": "dombot-insights-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "npx @an-sdk/cli dev",
+    "deploy": "npx @an-sdk/cli deploy"
+  },
+  "dependencies": {
+    "@an-sdk/agent": "latest",
+    "convex": "latest",
+    "zod": "latest"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "@types/node": "^20.0.0"
+  }
+}
