@@ -623,6 +623,7 @@ async def process_trace(
     trace.modal_recovery_count = int(modal_recovery_count)
 
     # --- handoff to Eric's store_trace ---
+    from dombot.db import store_trace
     store_trace(
         task=trace.task,
         domain=trace.domain,
