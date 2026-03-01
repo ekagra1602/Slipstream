@@ -1,5 +1,5 @@
 {
-  "name": "dombot-insights-agent",
+  "name": "slipstream-insights",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -9,7 +9,6 @@
   },
   "dependencies": {
     "@an-sdk/agent": "latest",
-    "convex": "latest",
     "zod": "latest"
   },
   "devDependencies": {

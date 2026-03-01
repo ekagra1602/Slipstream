@@ -13,6 +13,46 @@
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
+    <!-- Ask bar — top center -->
+    <div id="ask-bar">
+      <div id="ask-bar-pulse"></div>
+      <input
+        type="text"
+        id="ask-input"
+        placeholder="Ask anything about your data..."
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <div id="ask-bar-hint">
+        <span id="ask-bar-key">&#9166;</span>
+      </div>
+    </div>
+
+    <!-- Warp canvas — fullscreen behind modal -->
+    <canvas id="warp-canvas" class="chat-hidden"></canvas>
+
+    <!-- Chat modal — center overlay -->
+    <div id="chat-backdrop" class="chat-hidden"></div>
+    <div id="chat-modal" class="chat-hidden">
+      <div id="chat-glow-border"></div>
+      <button id="chat-close">&times;</button>
+      <div id="chat-header">
+        <div id="chat-header-dot"></div>
+        <span id="chat-header-title">SLIPSTREAM INSIGHTS</span>
+      </div>
+      <div id="chat-messages"></div>
+      <div id="chat-input-row">
+        <input
+          type="text"
+          id="chat-input"
+          placeholder="Ask a follow-up..."
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <button id="chat-send">&#9656;</button>
+      </div>
+    </div>
+
     <!-- 3D Graph container -->
     <div id="graph"></div>
 
@@ -113,5 +153,6 @@
     <script src="https://unpkg.com/three@0.160.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
     <script src="https://unpkg.com/3d-force-graph@1.73.4/dist/3d-force-graph.min.js"></script>
     <script src="app.js"></script>
+    <script src="chat.js"></script>
   </body>
 </html>
