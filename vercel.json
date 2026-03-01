@@ -1,15 +1,11 @@
 {
-  "buildCommand": "",
-  "outputDirectory": "",
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/index.py" },
-    { "source": "/ws", "destination": "/api/index.py" }
-  ],
-  "routes": [
-    { "src": "/style.css", "dest": "/frontend/style.css" },
-    { "src": "/app.js", "dest": "/frontend/app.js" },
-    { "src": "/chat.js", "dest": "/frontend/chat.js" },
-    { "src": "/(.*\\.html)", "dest": "/frontend/$1" },
-    { "src": "/", "dest": "/frontend/index.html" }
+    { "source": "/ws", "destination": "/api/index.py" },
+    { "source": "/style.css", "destination": "/frontend/style.css" },
+    { "source": "/app.js", "destination": "/frontend/app.js" },
+    { "source": "/chat.js", "destination": "/frontend/chat.js" },
+    { "source": "/(.*\\.html)", "destination": "/frontend/$1" },
+    { "source": "/", "destination": "/frontend/index.html" }
   ]
 }
