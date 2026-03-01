@@ -24,6 +24,24 @@ def _get_collection():
 
 
 # ---------------------------------------------------------------------------
+# Input validation
+# ---------------------------------------------------------------------------
+
+def _validate_inputs(task: str, domain: str) -> None:
+    if not task or not task.strip():
+        raise ValueError("task must be a non-empty string")
+    if not domain or not domain.strip():
+        raise ValueError("domain must be a non-empty string")
+
+
+def _validate_step(step: StepData) -> None:
+    if not step.action or not step.action.strip():
+        raise ValueError("action must be a non-empty string")
+    if not step.target or not step.target.strip():
+        raise ValueError("target must be a non-empty string")
+
+
+# ---------------------------------------------------------------------------
 # Data types
 # ---------------------------------------------------------------------------
 
@@ -51,6 +69,7 @@ class OptimalPath:
 
 def query_context(task: str, domain: str) -> OptimalPath | None:
     """Vector-search for the most relevant task node and return its optimal path."""
+    _validate_inputs(task, domain)
     collection = _get_collection()
     query_embedding = embed_task(task)
 
@@ -62,10 +81,8 @@ def query_context(task: str, domain: str) -> OptimalPath | None:
                 "queryVector": query_embedding,
                 "numCandidates": 50,
                 "limit": 5,
+                "filter": {"domain": domain},
             }
-        },
-        {
-            "$match": {"domain": domain}
         },
         {
             "$limit": 1
@@ -100,6 +117,8 @@ def query_context(task: str, domain: str) -> OptimalPath | None:
 
 def store_step(task: str, domain: str, step: StepData) -> None:
     """Append a single step observation to the task node's step_traces."""
+    _validate_inputs(task, domain)
+    _validate_step(step)
     collection = _get_collection()
     sig = _action_signature(step)
 
@@ -126,6 +145,9 @@ def store_step(task: str, domain: str, step: StepData) -> None:
 
 def store_trace(task: str, domain: str, trace: list[StepData], success: bool) -> None:
     """Process a completed run trace and update the task node."""
+    _validate_inputs(task, domain)
+    if not trace:
+        raise ValueError("trace must be a non-empty list")
     collection = _get_collection()
     embedding = embed_task(task)
 
