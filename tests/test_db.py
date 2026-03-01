@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from unittest.mock import call
-
 import pytest
 
 from db.db import (

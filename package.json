@@ -1,5 +1,16 @@
 {
+  "scripts": {
+    "quality:gate": "python scripts/quality_gate.py",
+    "check:js-syntax": "node scripts/check_js_syntax.js",
+    "lint:js": "eslint frontend/app.js scripts/*.js",
+    "format:check": "prettier --check \"frontend/*.{js,html,css}\" \"scripts/*.js\""
+  },
   "dependencies": {
     "convex": "^1.32.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.0",
+    "eslint": "^9.39.0",
+    "prettier": "^3.6.2"
   }
 }

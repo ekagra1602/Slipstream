@@ -17,7 +17,13 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from browser_use import Agent, Browser
 from dotenv import load_dotenv
+
+from dombot.db import get_backend_name, get_step_log, get_trace_log, seed_task_node
+from dombot.prompts import DOMBOT_SYSTEM_PROMPT
+from dombot.tools import tools
+from dombot.trace_pipeline import initialize_laminar, process_trace
 
 load_dotenv()
 
@@ -34,15 +40,6 @@ logging.getLogger("httpcore").setLevel(logging.WARNING)
 logging.getLogger("openai").setLevel(logging.WARNING)
 
 logger = logging.getLogger("demo")
-
-# ── Imports ─────────────────────────────────────────────────────────────────
-
-from browser_use import Agent, Browser
-
-from dombot.db import get_backend_name, get_step_log, get_trace_log, seed_task_node
-from dombot.prompts import DOMBOT_SYSTEM_PROMPT
-from dombot.tools import tools
-from dombot.trace_pipeline import initialize_laminar, process_trace
 
 TASK = "Go to google.com and search for 'DomBot browser automation' and tell me the first result title"
 DOMAIN = "google.com"
@@ -93,7 +90,7 @@ async def main():
     # so Laminar.get_trace_id() returns the active trace ID reliably.
 
     try:
-        from lmnr import Laminar as _Lmnr, observe
+        from lmnr import observe
 
         @observe()
         async def run_agent():
@@ -118,7 +115,7 @@ async def main():
             print()
             print("=" * 60)
             print(f"Task: {TASK}")
-            print(f"DomBot tools: dombot_query, dombot_report")
+            print("DomBot tools: dombot_query, dombot_report")
             print(f"Laminar tracing: {'ENABLED' if trace_id_holder is not None else 'DISABLED'}")
             print("=" * 60)
             print()
@@ -149,8 +146,8 @@ async def main():
         print()
         print("=" * 60)
         print(f"Task: {TASK}")
-        print(f"DomBot tools: dombot_query, dombot_report")
-        print(f"Laminar tracing: DISABLED (lmnr not installed)")
+        print("DomBot tools: dombot_query, dombot_report")
+        print("Laminar tracing: DISABLED (lmnr not installed)")
         print("=" * 60)
         print()
 

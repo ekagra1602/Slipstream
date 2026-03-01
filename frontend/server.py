@@ -171,11 +171,11 @@ def get_graph():
             d1_tids = set(s1["task_ids"])
             d2_tids = set(s2["task_ids"])
             has_cross_link = any(
-                l for l in links
-                if l.get("type") == "cross"
+                link_item for link_item in links
+                if link_item.get("type") == "cross"
                 and (
-                    (l["source"] in d1_tids and l["target"] in d2_tids)
-                    or (l["source"] in d2_tids and l["target"] in d1_tids)
+                    (link_item["source"] in d1_tids and link_item["target"] in d2_tids)
+                    or (link_item["source"] in d2_tids and link_item["target"] in d1_tids)
                 )
             )
             if has_cross_link:

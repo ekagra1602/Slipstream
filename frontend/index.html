@@ -1,107 +1,117 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DomBot — Knowledge Graph</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css" />
-</head>
-<body>
-  <!-- 3D Graph container -->
-  <div id="graph"></div>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DomBot — Knowledge Graph</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <!-- 3D Graph container -->
+    <div id="graph"></div>
 
-  <!-- Noise overlay for atmosphere -->
-  <div id="noise-overlay"></div>
+    <!-- Noise overlay for atmosphere -->
+    <div id="noise-overlay"></div>
 
-  <!-- Stats overlay — top left -->
-  <div id="stats-panel" class="glass-panel">
-    <div class="stat-row">
-      <span class="stat-label">Domains</span>
-      <span class="stat-value" id="stat-domains">0</span>
-    </div>
-    <div class="stat-row">
-      <span class="stat-label">Tasks</span>
-      <span class="stat-value" id="stat-tasks">0</span>
-    </div>
-    <div class="stat-row">
-      <span class="stat-label">Total Runs</span>
-      <span class="stat-value" id="stat-runs">0</span>
-    </div>
-    <div class="stat-row">
-      <span class="stat-label">Avg Confidence</span>
-      <span class="stat-value" id="stat-confidence">0%</span>
-    </div>
-    <div class="stat-row">
-      <span class="stat-label">Real Nodes</span>
-      <span class="stat-value" id="stat-real-nodes">0</span>
-    </div>
-    <div class="stat-row">
-      <span class="stat-label">Ambient Visuals</span>
-      <span class="stat-value" id="stat-ambient-visuals">0</span>
-    </div>
-  </div>
-
-  <!-- Detail panel — right side -->
-  <div id="detail-panel" class="glass-panel">
-    <button id="detail-close">&times;</button>
-    <h2 id="detail-title"></h2>
-    <p id="detail-domain" class="detail-domain"></p>
-    <div class="detail-section">
-      <span class="detail-label">Confidence</span>
-      <div class="confidence-bar-outer">
-        <div class="confidence-bar-inner" id="detail-confidence-bar"></div>
+    <!-- Stats overlay — top left -->
+    <div id="stats-panel" class="glass-panel">
+      <div class="stat-row">
+        <span class="stat-label">Domains</span>
+        <span class="stat-value" id="stat-domains">0</span>
       </div>
-      <span class="detail-confidence-text" id="detail-confidence-text"></span>
+      <div class="stat-row">
+        <span class="stat-label">Tasks</span>
+        <span class="stat-value" id="stat-tasks">0</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Total Runs</span>
+        <span class="stat-value" id="stat-runs">0</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Avg Confidence</span>
+        <span class="stat-value" id="stat-confidence">0%</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Real Nodes</span>
+        <span class="stat-value" id="stat-real-nodes">0</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Ambient Visuals</span>
+        <span class="stat-value" id="stat-ambient-visuals">0</span>
+      </div>
     </div>
-    <div class="detail-section">
-      <span class="detail-label">Run Count</span>
-      <span class="detail-value" id="detail-runs"></span>
+
+    <!-- Detail panel — right side -->
+    <div id="detail-panel" class="glass-panel">
+      <button id="detail-close">&times;</button>
+      <h2 id="detail-title"></h2>
+      <p id="detail-domain" class="detail-domain"></p>
+      <div class="detail-section">
+        <span class="detail-label">Confidence</span>
+        <div class="confidence-bar-outer">
+          <div class="confidence-bar-inner" id="detail-confidence-bar"></div>
+        </div>
+        <span class="detail-confidence-text" id="detail-confidence-text"></span>
+      </div>
+      <div class="detail-section">
+        <span class="detail-label">Run Count</span>
+        <span class="detail-value" id="detail-runs"></span>
+      </div>
+      <div class="detail-section">
+        <span class="detail-label">Optimal Actions</span>
+        <ol id="detail-actions" class="detail-actions"></ol>
+      </div>
+      <div class="detail-section">
+        <span class="detail-label">Step Traces</span>
+        <div id="detail-traces" class="detail-traces"></div>
+      </div>
     </div>
-    <div class="detail-section">
-      <span class="detail-label">Optimal Actions</span>
-      <ol id="detail-actions" class="detail-actions"></ol>
+
+    <!-- Time slider — bottom -->
+    <div id="timeline-panel" class="glass-panel">
+      <button id="timeline-play" title="Play/Pause">&#9654;</button>
+      <input
+        type="range"
+        id="timeline-slider"
+        min="0"
+        max="1000"
+        value="1000"
+      />
+      <span id="timeline-date" class="mono"></span>
     </div>
-    <div class="detail-section">
-      <span class="detail-label">Step Traces</span>
-      <div id="detail-traces" class="detail-traces"></div>
+
+    <!-- Branding — bottom center-left -->
+    <div id="branding">
+      <span class="brand-name">DOMBOT</span>
+      <span class="brand-sub">LIVE ROUTING BRAIN // OPTIMIZING</span>
     </div>
-  </div>
 
-  <!-- Time slider — bottom -->
-  <div id="timeline-panel" class="glass-panel">
-    <button id="timeline-play" title="Play/Pause">&#9654;</button>
-    <input type="range" id="timeline-slider" min="0" max="1000" value="1000" />
-    <span id="timeline-date" class="mono"></span>
-  </div>
+    <!-- Demo controls — bottom right -->
+    <div id="demo-controls" class="glass-panel">
+      <button id="btn-simulate">Simulate Agent Run</button>
+      <button id="btn-replay-growth">Replay Growth</button>
+      <button id="btn-cinematic" class="toggle-on">Cinematic: On</button>
+      <label id="auto-label">
+        <input type="checkbox" id="chk-auto" />
+        Auto-simulate
+      </label>
+    </div>
 
-  <!-- Branding — bottom center-left -->
-  <div id="branding">
-    <span class="brand-name">DOMBOT</span>
-    <span class="brand-sub">LIVE ROUTING BRAIN // OPTIMIZING</span>
-  </div>
-
-  <!-- Demo controls — bottom right -->
-  <div id="demo-controls" class="glass-panel">
-    <button id="btn-simulate">Simulate Agent Run</button>
-    <button id="btn-cinematic" class="toggle-on">Cinematic: On</button>
-    <label id="auto-label">
-      <input type="checkbox" id="chk-auto" />
-      Auto-simulate
-    </label>
-  </div>
-
-  <!-- Scripts: three.js MUST load before 3d-force-graph -->
-  <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
-  <script src="https://unpkg.com/three@0.160.0/examples/js/postprocessing/EffectComposer.js"></script>
-  <script src="https://unpkg.com/three@0.160.0/examples/js/postprocessing/RenderPass.js"></script>
-  <script src="https://unpkg.com/three@0.160.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
-  <script src="https://unpkg.com/three@0.160.0/examples/js/shaders/CopyShader.js"></script>
-  <script src="https://unpkg.com/three@0.160.0/examples/js/postprocessing/ShaderPass.js"></script>
-  <script src="https://unpkg.com/three@0.160.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
-  <script src="https://unpkg.com/3d-force-graph@1.73.4/dist/3d-force-graph.min.js"></script>
-  <script src="app.js"></script>
-</body>
+    <!-- Scripts: three.js MUST load before 3d-force-graph -->
+    <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+    <script src="https://unpkg.com/three@0.160.0/examples/js/postprocessing/EffectComposer.js"></script>
+    <script src="https://unpkg.com/three@0.160.0/examples/js/postprocessing/RenderPass.js"></script>
+    <script src="https://unpkg.com/three@0.160.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+    <script src="https://unpkg.com/three@0.160.0/examples/js/shaders/CopyShader.js"></script>
+    <script src="https://unpkg.com/three@0.160.0/examples/js/postprocessing/ShaderPass.js"></script>
+    <script src="https://unpkg.com/three@0.160.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+    <script src="https://unpkg.com/3d-force-graph@1.73.4/dist/3d-force-graph.min.js"></script>
+    <script src="app.js"></script>
+  </body>
 </html>

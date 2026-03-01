@@ -19,10 +19,10 @@
       high: { r: 180, g: 165, b: 130 },
     },
     links: {
-      hubBaseAlpha: 0.10,
+      hubBaseAlpha: 0.1,
       hubAlphaScale: 0.25,
       crossBaseAlpha: 0.13,
-      crossAlphaScale: 0.30,
+      crossAlphaScale: 0.3,
       hubBaseWidth: 0.35,
       hubWidthScale: 1.35,
       crossBaseWidth: 0.45,
@@ -30,13 +30,37 @@
     },
     particles: {
       color: "#BFCBDA",
-      width: 1.8,
-      hubBaseCount: 1,
-      hubCountScale: 4,
-      crossBaseCount: 1,
-      crossCountScale: 5,
-      baseSpeed: 0.0023,
-      speedScale: 0.0032,
+      width: 1.55,
+      baseSpeed: 0.0019,
+      speedScale: 0.0023,
+      minStrength: 0.35,
+      hardCapMin: 70,
+      hardCapMax: 240,
+      batchCount: 4,
+      epochMs: 650,
+    },
+    hover: {
+      delayMs: 400,
+      nonFocusLinkAlpha: 0.02,
+      nonFocusLinkWidthFactor: 0.3,
+      focusLinkAlphaBoost: 0.48,
+      focusLinkWidthBoost: 2.3,
+      dimNodeOpacityFactor: 0.13,
+      neighborNodeOpacityFactor: 1.08,
+      focusNodeOpacityFactor: 1.46,
+      dimNodeScaleFactor: 0.93,
+      neighborNodeScaleFactor: 1.08,
+      focusNodeScaleFactor: 1.28,
+      dimLabelOpacity: 0.12,
+    },
+    replay: {
+      durationMs: 2800,
+      nodeEaseMs: 520,
+      linkEaseMs: 420,
+      minScale: 0.001,
+      ringCount: 14,
+      ringJitterMs: 90,
+      edgeLagMs: 120,
     },
     ambient: {
       pointsCount: 4000,
@@ -61,6 +85,9 @@
       defaultDistance: 380,
       minDistance: 140,
       maxDistance: 920,
+      introDurationMs: 3600,
+      introNearDistance: 4,
+      introFarDistance: 430,
       focusDistanceTask: 205,
       focusDistanceDomain: 260,
       zoomStep: 26,
@@ -114,6 +141,7 @@
     statRealNodes: document.getElementById("stat-real-nodes"),
     statAmbientVisuals: document.getElementById("stat-ambient-visuals"),
     btnSimulate: document.getElementById("btn-simulate"),
+    btnReplayGrowth: document.getElementById("btn-replay-growth"),
     btnCinematic: document.getElementById("btn-cinematic"),
     chkAuto: document.getElementById("chk-auto"),
     timelineSlider: document.getElementById("timeline-slider"),
@@ -132,6 +160,17 @@
 
   function lerpRound(a, b, t) {
     return Math.round(lerp(a, b, t));
+  }
+
+  function easeOutCubic(t) {
+    const clamped = clamp(t, 0, 1);
+    return 1 - Math.pow(1 - clamped, 3);
+  }
+
+  function easeInOutCubic(t) {
+    const clamped = clamp(t, 0, 1);
+    if (clamped < 0.5) return 4 * clamped * clamped * clamped;
+    return 1 - Math.pow(-2 * clamped + 2, 3) / 2;
   }
 
   function hashString(str) {
@@ -212,6 +251,12 @@
     return typeof ref === "object" && ref !== null ? ref.id : ref;
   }
 
+  function normalizeLinkPair(sourceId, targetId) {
+    const a = String(sourceId);
+    const b = String(targetId);
+    return a < b ? `${a}::${b}` : `${b}::${a}`;
+  }
+
   // ---- Global state ----
   let graphData = { nodes: [], links: [] };
   let graph;
@@ -227,6 +272,8 @@
   let maxRunCount = 1;
   let maxDomainRuns = 1;
   let nodeById = new Map();
+  let adjacencyByNode = new Map();
+  let incidentLinksByNode = new Map();
 
   const sceneLayers = {
     ambientPoints: null,
@@ -242,6 +289,31 @@
     runningMs: 0,
   };
 
+  const replayState = {
+    active: false,
+    startMs: 0,
+    nowMs: 0,
+    durationMs: VISUAL_CONFIG.replay.durationMs,
+    nodeRevealMsById: new Map(),
+    linkRevealMsById: new Map(),
+    queuedRefresh: false,
+  };
+
+  const hoverState = {
+    activeNodeId: null,
+    activeNodeIds: new Set(),
+    activeLinkIds: new Set(),
+    pendingNodeId: null,
+    pendingTimerId: null,
+  };
+
+  const particleBudgetState = {
+    activeLinkIds: new Set(),
+    epochIndex: 0,
+    nextEpochTs: 0,
+    dirty: true,
+  };
+
   const cameraState = {
     cinematicEnabled: true,
     userInteracted: false,
@@ -254,6 +326,12 @@
     pointerNDC: new THREE.Vector2(0, 0),
     renderStarted: false,
     lastFrameTs: performance.now(),
+    introPlayed: false,
+    introActive: false,
+    introStartMs: 0,
+    introFrom: new THREE.Vector3(0, 0, VISUAL_CONFIG.camera.introNearDistance),
+    introTo: new THREE.Vector3(0, 90, VISUAL_CONFIG.camera.introFarDistance),
+    introTarget: new THREE.Vector3(0, 0, 0),
   };
 
   const labelState = {
@@ -264,6 +342,8 @@
   // ---- Derived metrics and graph-state enrichment ----
   function computeDerivedMetrics() {
     nodeById = new Map();
+    adjacencyByNode = new Map();
+    incidentLinksByNode = new Map();
 
     const tasks = graphData.nodes.filter((n) => n.type === "task");
     const domains = graphData.nodes.filter((n) => n.type === "domain");
@@ -272,31 +352,71 @@
     maxDomainRuns = Math.max(1, ...domains.map((n) => n.total_runs || 0));
 
     graphData.nodes.forEach((node) => {
-      const runCount = node.type === "domain" ? node.total_runs : node.run_count;
-      const conf = node.type === "domain" ? (node.avg_confidence || 0) : (node.confidence || 0);
-      const activity = node.type === "domain"
-        ? activityFromRuns(runCount || 0, maxDomainRuns)
-        : activityFromRuns(runCount || 0, maxRunCount);
+      const runCount =
+        node.type === "domain" ? node.total_runs : node.run_count;
+      const conf =
+        node.type === "domain"
+          ? node.avg_confidence || 0
+          : node.confidence || 0;
+      const activity =
+        node.type === "domain"
+          ? activityFromRuns(runCount || 0, maxDomainRuns)
+          : activityFromRuns(runCount || 0, maxRunCount);
 
       node.__activityNormalized = activity;
       node.__confidenceSignal = clamp(conf, 0, 1);
-      node.__routeReliability = clamp(0.7 * node.__confidenceSignal + 0.3 * activity, 0, 1);
+      node.__routeReliability = clamp(
+        0.7 * node.__confidenceSignal + 0.3 * activity,
+        0,
+        1,
+      );
       node.__pulsePhase = (hashString(String(node.id)) % 1000) / 160;
+      if (node.__timelineVisible === undefined) node.__timelineVisible = true;
+      if (node.__replayVisible === undefined) node.__replayVisible = true;
+      node.__visible =
+        node.__timelineVisible !== false && node.__replayVisible !== false;
+      adjacencyByNode.set(node.id, new Set());
+      incidentLinksByNode.set(node.id, new Set());
       nodeById.set(node.id, node);
     });
 
-    graphData.links.forEach((link) => {
-      const sourceNode = nodeById.get(safeNodeId(link.source));
-      const targetNode = nodeById.get(safeNodeId(link.target));
+    const duplicateLinkCounter = new Map();
+    const batchCount = Math.max(1, VISUAL_CONFIG.particles.batchCount);
 
-      const sourceReliability = sourceNode ? sourceNode.__routeReliability : 0.5;
-      const targetReliability = targetNode ? targetNode.__routeReliability : 0.5;
+    graphData.links.forEach((link) => {
+      const sourceId = safeNodeId(link.source);
+      const targetId = safeNodeId(link.target);
+      const sourceNode = nodeById.get(sourceId);
+      const targetNode = nodeById.get(targetId);
+      const pairKey = normalizeLinkPair(sourceId, targetId);
+      const typeKey = link.type || "edge";
+      const dupKey = `${typeKey}:${pairKey}`;
+      const serial = duplicateLinkCounter.get(dupKey) || 0;
+      duplicateLinkCounter.set(dupKey, serial + 1);
+      link.__id = `${dupKey}:${serial}`;
+      if (link.__timelineVisible === undefined) link.__timelineVisible = true;
+      if (link.__replayVisible === undefined) link.__replayVisible = true;
+
+      const sourceReliability = sourceNode
+        ? sourceNode.__routeReliability
+        : 0.5;
+      const targetReliability = targetNode
+        ? targetNode.__routeReliability
+        : 0.5;
       const sourceActivity = sourceNode ? sourceNode.__activityNormalized : 0.4;
       const targetActivity = targetNode ? targetNode.__activityNormalized : 0.4;
 
-      const confidenceSignal = clamp((sourceReliability + targetReliability) / 2, 0, 1);
+      const confidenceSignal = clamp(
+        (sourceReliability + targetReliability) / 2,
+        0,
+        1,
+      );
       const activitySignal = clamp((sourceActivity + targetActivity) / 2, 0, 1);
-      let routeStrength = clamp(0.7 * confidenceSignal + 0.3 * activitySignal, 0, 1);
+      let routeStrength = clamp(
+        0.7 * confidenceSignal + 0.3 * activitySignal,
+        0,
+        1,
+      );
 
       if (link.type === "cross") {
         const strengthNorm = clamp((link.strength || 1) / 5, 0, 1);
@@ -304,7 +424,390 @@
       }
 
       link.__routeStrength = routeStrength;
+      link.__particleWeight = clamp(
+        routeStrength * 0.55 + activitySignal * 0.45,
+        0,
+        1,
+      );
+      link.__particleBucket = hashString(link.__id) % batchCount;
+
+      if (sourceNode && targetNode) {
+        adjacencyByNode.get(sourceId).add(targetId);
+        adjacencyByNode.get(targetId).add(sourceId);
+        incidentLinksByNode.get(sourceId).add(link.__id);
+        incidentLinksByNode.get(targetId).add(link.__id);
+      }
+
+      link.__visible =
+        link.__timelineVisible !== false &&
+        link.__replayVisible !== false &&
+        sourceNode?.__visible !== false &&
+        targetNode?.__visible !== false;
     });
+
+    particleBudgetState.dirty = true;
+  }
+
+  function refreshLinkAccessors() {
+    if (!graph) return;
+    if (typeof graph.linkColor !== "function") return;
+    if (typeof graph.linkWidth !== "function") return;
+    if (typeof graph.linkDirectionalParticles !== "function") return;
+    if (typeof graph.linkDirectionalParticleSpeed !== "function") return;
+
+    graph
+      .linkColor(linkColor)
+      .linkWidth(linkWidth)
+      .linkDirectionalParticles(linkParticles)
+      .linkDirectionalParticleSpeed(linkParticleSpeed);
+  }
+
+  function clearPendingHoverIntent() {
+    if (hoverState.pendingTimerId) {
+      clearTimeout(hoverState.pendingTimerId);
+      hoverState.pendingTimerId = null;
+    }
+    hoverState.pendingNodeId = null;
+  }
+
+  function setHoverFocus(node) {
+    if (!node || node.__visible === false) {
+      if (!hoverState.activeNodeId) return;
+      hoverState.activeNodeId = null;
+      hoverState.activeNodeIds = new Set();
+      hoverState.activeLinkIds = new Set();
+      cameraState.hoveredNodeId = null;
+      refreshLinkAccessors();
+      scheduleLabelUpdate();
+      return;
+    }
+
+    const nodeId = node.id;
+    if (hoverState.activeNodeId === nodeId) return;
+    const activeNodeIds = new Set([nodeId]);
+    const neighbors = adjacencyByNode.get(nodeId) || new Set();
+    neighbors.forEach((id) => activeNodeIds.add(id));
+
+    hoverState.activeNodeId = nodeId;
+    hoverState.activeNodeIds = activeNodeIds;
+    hoverState.activeLinkIds = new Set(incidentLinksByNode.get(nodeId) || []);
+    cameraState.hoveredNodeId = nodeId;
+    refreshLinkAccessors();
+    scheduleLabelUpdate();
+  }
+
+  function handleHoverIntent(node) {
+    if (!node || node.__visible === false) {
+      clearPendingHoverIntent();
+      setHoverFocus(null);
+      return;
+    }
+
+    const nodeId = node.id;
+    if (hoverState.activeNodeId === nodeId) {
+      clearPendingHoverIntent();
+      return;
+    }
+
+    if (hoverState.pendingNodeId === nodeId) return;
+
+    clearPendingHoverIntent();
+    hoverState.pendingNodeId = nodeId;
+
+    hoverState.pendingTimerId = setTimeout(() => {
+      const pendingId = hoverState.pendingNodeId;
+      hoverState.pendingTimerId = null;
+      hoverState.pendingNodeId = null;
+
+      if (!pendingId) return;
+      const pendingNode = nodeById.get(pendingId);
+      if (!pendingNode || pendingNode.__visible === false) return;
+      setHoverFocus(pendingNode);
+    }, VISUAL_CONFIG.hover.delayMs);
+  }
+
+  function replayRevealProgress(nowMs, revealMs, easeWindowMs) {
+    if (!replayState.active) return 1;
+    if (!Number.isFinite(revealMs)) return 1;
+    const elapsed = nowMs - replayState.startMs;
+    const raw = (elapsed - revealMs) / Math.max(1, easeWindowMs);
+    return clamp(raw, 0, 1);
+  }
+
+  function replayNodeProgress(node, nowMs) {
+    if (!replayState.active) return 1;
+    const revealMs = replayState.nodeRevealMsById.get(node.id);
+    return easeOutCubic(
+      replayRevealProgress(nowMs, revealMs, VISUAL_CONFIG.replay.nodeEaseMs),
+    );
+  }
+
+  function replayLinkProgress(link, nowMs) {
+    if (!replayState.active) return 1;
+    const revealMs = replayState.linkRevealMsById.get(link.__id);
+    return easeOutCubic(
+      replayRevealProgress(nowMs, revealMs, VISUAL_CONFIG.replay.linkEaseMs),
+    );
+  }
+
+  function isNodeVisibleByComposite(node) {
+    return node.__timelineVisible !== false && node.__replayVisible !== false;
+  }
+
+  function isLinkVisibleByComposite(link) {
+    if (link.__timelineVisible === false || link.__replayVisible === false)
+      return false;
+
+    const source = nodeById.get(safeNodeId(link.source));
+    const target = nodeById.get(safeNodeId(link.target));
+    return source?.__visible !== false && target?.__visible !== false;
+  }
+
+  function applyCompositeVisibility() {
+    graphData.nodes.forEach((node) => {
+      node.__visible = isNodeVisibleByComposite(node);
+      if (node.__threeObj) {
+        node.__threeObj.visible = node.__visible !== false;
+      }
+    });
+
+    graphData.links.forEach((link) => {
+      link.__visible = isLinkVisibleByComposite(link);
+    });
+
+    if (
+      graph &&
+      typeof graph.nodeVisibility === "function" &&
+      typeof graph.linkVisibility === "function"
+    ) {
+      graph
+        .nodeVisibility((node) => node.__visible !== false)
+        .linkVisibility((link) => link.__visible !== false);
+    }
+
+    if (hoverState.activeNodeId) {
+      const hovered = nodeById.get(hoverState.activeNodeId);
+      if (!hovered || hovered.__visible === false) {
+        clearPendingHoverIntent();
+        setHoverFocus(null);
+      }
+    }
+
+    particleBudgetState.dirty = true;
+    updateParticleBudget(true);
+    refreshLinkAccessors();
+    scheduleLabelUpdate();
+  }
+
+  function setReplayControlsLocked(locked) {
+    if (dom.timelineSlider) dom.timelineSlider.disabled = locked;
+    if (dom.timelinePlay) dom.timelinePlay.disabled = locked;
+    if (dom.btnSimulate && !locked) {
+      dom.btnSimulate.textContent = "Simulate Agent Run";
+    }
+    if (dom.btnSimulate) dom.btnSimulate.disabled = locked;
+    if (dom.btnReplayGrowth) {
+      dom.btnReplayGrowth.disabled = locked;
+      dom.btnReplayGrowth.classList.toggle("is-replaying", locked);
+      dom.btnReplayGrowth.textContent = locked
+        ? "Replaying..."
+        : "Replay Growth";
+    }
+  }
+
+  function pickReplayHubNode() {
+    let bestNode = null;
+    let bestDegree = -1;
+
+    graphData.nodes.forEach((node) => {
+      const degree = adjacencyByNode.get(node.id)?.size || 0;
+      const preferDomain = node.type === "domain" ? 0.2 : 0;
+      const score = degree + preferDomain;
+      if (score > bestDegree) {
+        bestDegree = score;
+        bestNode = node;
+      }
+    });
+
+    return bestNode || graphData.nodes[0] || null;
+  }
+
+  function buildReplaySchedule() {
+    const hub = pickReplayHubNode();
+    if (!hub)
+      return { nodeRevealMsById: new Map(), linkRevealMsById: new Map() };
+
+    // Demo replay is intentionally synthetic (not history timestamps):
+    // reveal nodes in deterministic radial rings from the most connected hub.
+    const distances = new Map();
+    const queue = [hub.id];
+    distances.set(hub.id, 0);
+
+    while (queue.length) {
+      const currentId = queue.shift();
+      const currentDist = distances.get(currentId) || 0;
+      const neighbors = adjacencyByNode.get(currentId) || new Set();
+
+      neighbors.forEach((nextId) => {
+        if (distances.has(nextId)) return;
+        distances.set(nextId, currentDist + 1);
+        queue.push(nextId);
+      });
+    }
+
+    const maxKnownDist = Math.max(
+      1,
+      ...Array.from(distances.values(), (v) => v || 1),
+    );
+    const maxNodeRevealMs = Math.max(
+      280,
+      replayState.durationMs -
+        VISUAL_CONFIG.replay.nodeEaseMs -
+        VISUAL_CONFIG.replay.edgeLagMs -
+        40,
+    );
+    const maxLinkRevealMs = Math.max(
+      320,
+      replayState.durationMs - VISUAL_CONFIG.replay.linkEaseMs,
+    );
+    const ringCount = Math.max(1, VISUAL_CONFIG.replay.ringCount);
+    const nodeRevealMsById = new Map();
+    graphData.nodes.forEach((node) => {
+      const rawDist = distances.has(node.id)
+        ? distances.get(node.id)
+        : maxKnownDist + 1 + (hashString(`island:${node.id}`) % 3);
+      const ringProgress = rawDist / (maxKnownDist + 2);
+      const ringIndex = Math.min(
+        ringCount - 1,
+        Math.floor(ringProgress * ringCount),
+      );
+      const baseMs = (ringIndex / Math.max(1, ringCount - 1)) * maxNodeRevealMs;
+      const jitter =
+        hashString(`replay:${node.id}`) % VISUAL_CONFIG.replay.ringJitterMs;
+      const revealMs = clamp(baseMs + jitter, 0, maxNodeRevealMs);
+      nodeRevealMsById.set(node.id, revealMs);
+    });
+
+    const linkRevealMsById = new Map();
+    graphData.links.forEach((link) => {
+      const sourceId = safeNodeId(link.source);
+      const targetId = safeNodeId(link.target);
+      const sourceMs = nodeRevealMsById.get(sourceId) || 0;
+      const targetMs = nodeRevealMsById.get(targetId) || 0;
+      const revealMs = clamp(
+        Math.max(sourceMs, targetMs) + VISUAL_CONFIG.replay.edgeLagMs,
+        0,
+        maxLinkRevealMs,
+      );
+      linkRevealMsById.set(link.__id, revealMs);
+    });
+
+    return { nodeRevealMsById, linkRevealMsById };
+  }
+
+  function finishReplayGrowth() {
+    replayState.active = false;
+    replayState.nodeRevealMsById = new Map();
+    replayState.linkRevealMsById = new Map();
+    replayState.nowMs = performance.now();
+
+    graphData.nodes.forEach((node) => {
+      node.__replayVisible = true;
+    });
+    graphData.links.forEach((link) => {
+      link.__replayVisible = true;
+    });
+
+    setReplayControlsLocked(false);
+    applyCompositeVisibility();
+
+    if (replayState.queuedRefresh) {
+      replayState.queuedRefresh = false;
+      refreshGraph();
+    }
+  }
+
+  function startReplayGrowth() {
+    if (!graph || replayState.active || !graphData.nodes.length) return;
+
+    if (isPlaying) togglePlay();
+
+    currentTimeValue = 1000;
+    dom.timelineSlider.value = 1000;
+    updateTimelineLabel(1000);
+    applyTimeFilter(1000);
+    clearPendingHoverIntent();
+    setHoverFocus(null);
+
+    const { nodeRevealMsById, linkRevealMsById } = buildReplaySchedule();
+    if (!nodeRevealMsById.size) return;
+
+    replayState.active = true;
+    replayState.startMs = performance.now();
+    replayState.nowMs = replayState.startMs;
+    replayState.nodeRevealMsById = nodeRevealMsById;
+    replayState.linkRevealMsById = linkRevealMsById;
+    replayState.queuedRefresh = false;
+    setReplayControlsLocked(true);
+
+    graphData.nodes.forEach((node) => {
+      node.__replayVisible = true;
+    });
+    graphData.links.forEach((link) => {
+      link.__replayVisible = true;
+    });
+    applyCompositeVisibility();
+    refreshLinkAccessors();
+    scheduleLabelUpdate();
+  }
+
+  function updateParticleBudget(force) {
+    const nowMs = performance.now();
+    if (
+      !force &&
+      !particleBudgetState.dirty &&
+      nowMs < particleBudgetState.nextEpochTs
+    )
+      return;
+
+    particleBudgetState.dirty = false;
+    particleBudgetState.nextEpochTs = nowMs + VISUAL_CONFIG.particles.epochMs;
+    particleBudgetState.epochIndex =
+      (particleBudgetState.epochIndex + 1) %
+      Math.max(1, VISUAL_CONFIG.particles.batchCount);
+
+    // Optimization: apply a hard global cap + rotating link buckets to keep traffic feel
+    // while preventing per-link particle overdraw from collapsing frame rate.
+    const normalizedBudget = clamp(
+      (performanceState.particleFactor -
+        VISUAL_CONFIG.performance.floorFactor) /
+        (1 - VISUAL_CONFIG.performance.floorFactor),
+      0,
+      1,
+    );
+    const cap = Math.max(
+      1,
+      Math.round(
+        lerp(
+          VISUAL_CONFIG.particles.hardCapMin,
+          VISUAL_CONFIG.particles.hardCapMax,
+          normalizedBudget,
+        ),
+      ),
+    );
+
+    const candidates = graphData.links
+      .filter(
+        (link) =>
+          link.__visible !== false &&
+          (link.__routeStrength || 0) >= VISUAL_CONFIG.particles.minStrength &&
+          link.__particleBucket === particleBudgetState.epochIndex,
+      )
+      .sort((a, b) => (b.__particleWeight || 0) - (a.__particleWeight || 0));
+
+    particleBudgetState.activeLinkIds = new Set(
+      candidates.slice(0, cap).map((link) => link.__id),
+    );
   }
 
   // ---- Node rendering ----
@@ -331,7 +834,10 @@
     const material = new THREE.SpriteMaterial({
       map: texture,
       transparent: true,
-      opacity: node.type === "domain" ? VISUAL_CONFIG.labels.domainOpacity : VISUAL_CONFIG.labels.taskOpacity,
+      opacity:
+        node.type === "domain"
+          ? VISUAL_CONFIG.labels.domainOpacity
+          : VISUAL_CONFIG.labels.taskOpacity,
       depthTest: false,
       depthWrite: false,
     });
@@ -354,16 +860,17 @@
     const group = new THREE.Group();
 
     const activity = node.__activityNormalized || 0;
-    const confidence = node.type === "domain" ? (node.avg_confidence || 0) : (node.confidence || 0);
+    const confidence =
+      node.type === "domain" ? node.avg_confidence || 0 : node.confidence || 0;
     const colorHex = confidenceHex(confidence);
 
-    const size = node.type === "domain"
-      ? 6.2 + activity * 1.8
-      : 1.85 + activity * 2.4;
+    const size =
+      node.type === "domain" ? 6.2 + activity * 1.8 : 1.85 + activity * 2.4;
 
-    const geometry = node.type === "domain"
-      ? new THREE.SphereGeometry(size, 16, 12)
-      : new THREE.SphereGeometry(size, 10, 8);
+    const geometry =
+      node.type === "domain"
+        ? new THREE.SphereGeometry(size, 16, 12)
+        : new THREE.SphereGeometry(size, 10, 8);
 
     let coreMaterial = null;
 
@@ -397,12 +904,12 @@
     const innerGlowMaterial = new THREE.MeshBasicMaterial({
       color: 0xffffff,
       transparent: true,
-      opacity: 0.10 + activity * 0.04,
+      opacity: 0.1 + activity * 0.04,
       side: THREE.BackSide,
     });
     const innerGlow = new THREE.Mesh(
       new THREE.SphereGeometry(size * 1.16, 12, 8),
-      innerGlowMaterial
+      innerGlowMaterial,
     );
     group.add(innerGlow);
 
@@ -414,7 +921,7 @@
     });
     const outerGlow = new THREE.Mesh(
       new THREE.SphereGeometry(size * 1.62, 12, 8),
-      outerGlowMaterial
+      outerGlowMaterial,
     );
     group.add(outerGlow);
 
@@ -441,40 +948,84 @@
   }
 
   function linkColor(link) {
+    if (!link) return "rgba(140, 145, 152, 0.1)";
+    const replayProgress = replayLinkProgress(link, replayState.nowMs);
+    if (replayProgress <= 0.001) return "rgba(140, 145, 152, 0)";
     const strength = clamp(link.__routeStrength || 0.45, 0, 1);
+    const hoverActive = !!hoverState.activeNodeId;
+    const inFocus = !hoverActive || hoverState.activeLinkIds.has(link.__id);
 
     if (link.type === "cross") {
-      const alpha = VISUAL_CONFIG.links.crossBaseAlpha + (strength * VISUAL_CONFIG.links.crossAlphaScale);
+      let alpha =
+        VISUAL_CONFIG.links.crossBaseAlpha +
+        strength * VISUAL_CONFIG.links.crossAlphaScale;
+      if (hoverActive && !inFocus) {
+        alpha = VISUAL_CONFIG.hover.nonFocusLinkAlpha;
+      } else if (hoverActive && inFocus) {
+        alpha = clamp(alpha + VISUAL_CONFIG.hover.focusLinkAlphaBoost, 0, 0.95);
+      }
+      alpha *= replayProgress;
       return `rgba(176, 184, 194, ${alpha.toFixed(2)})`;
     }
 
-    const alpha = VISUAL_CONFIG.links.hubBaseAlpha + (strength * VISUAL_CONFIG.links.hubAlphaScale);
+    let alpha =
+      VISUAL_CONFIG.links.hubBaseAlpha +
+      strength * VISUAL_CONFIG.links.hubAlphaScale;
+    if (hoverActive && !inFocus) {
+      alpha = VISUAL_CONFIG.hover.nonFocusLinkAlpha;
+    } else if (hoverActive && inFocus) {
+      alpha = clamp(alpha + VISUAL_CONFIG.hover.focusLinkAlphaBoost, 0, 0.95);
+    }
+    alpha *= replayProgress;
     return `rgba(140, 145, 152, ${alpha.toFixed(2)})`;
   }
 
   function linkWidth(link) {
+    if (!link) return VISUAL_CONFIG.links.hubBaseWidth;
+    const replayProgress = replayLinkProgress(link, replayState.nowMs);
+    if (replayProgress <= 0.001) return 0;
     const strength = clamp(link.__routeStrength || 0.45, 0, 1);
-    if (link.type === "cross") {
-      return VISUAL_CONFIG.links.crossBaseWidth + (strength * VISUAL_CONFIG.links.crossWidthScale);
+    const hoverActive = !!hoverState.activeNodeId;
+    const inFocus = !hoverActive || hoverState.activeLinkIds.has(link.__id);
+    let width =
+      link.type === "cross"
+        ? VISUAL_CONFIG.links.crossBaseWidth +
+          strength * VISUAL_CONFIG.links.crossWidthScale
+        : VISUAL_CONFIG.links.hubBaseWidth +
+          strength * VISUAL_CONFIG.links.hubWidthScale;
+
+    if (hoverActive && !inFocus) {
+      width *= VISUAL_CONFIG.hover.nonFocusLinkWidthFactor;
+    } else if (hoverActive && inFocus) {
+      width *= VISUAL_CONFIG.hover.focusLinkWidthBoost;
     }
-    return VISUAL_CONFIG.links.hubBaseWidth + (strength * VISUAL_CONFIG.links.hubWidthScale);
+
+    return width * replayProgress;
   }
 
   function linkParticles(link) {
-    const strength = clamp(link.__routeStrength || 0.45, 0, 1);
-    const base = link.type === "cross"
-      ? VISUAL_CONFIG.particles.crossBaseCount
-      : VISUAL_CONFIG.particles.hubBaseCount;
-    const scale = link.type === "cross"
-      ? VISUAL_CONFIG.particles.crossCountScale
-      : VISUAL_CONFIG.particles.hubCountScale;
-    const count = Math.round(base + (strength * scale));
-    return Math.max(1, Math.round(count * performanceState.particleFactor));
+    if (!link) return 0;
+    if (link.__visible === false) return 0;
+    if (
+      replayState.active &&
+      replayLinkProgress(link, replayState.nowMs) < 0.78
+    )
+      return 0;
+    // Optimization: render at most one particle per selected link.
+    // Global caps are handled in updateParticleBudget() to keep frame time stable.
+    if (!particleBudgetState.activeLinkIds.has(link.__id)) return 0;
+    if (hoverState.activeNodeId && !hoverState.activeLinkIds.has(link.__id))
+      return 0;
+    return 1;
   }
 
   function linkParticleSpeed(link) {
+    if (!link) return VISUAL_CONFIG.particles.baseSpeed;
     const strength = clamp(link.__routeStrength || 0.45, 0, 1);
-    return VISUAL_CONFIG.particles.baseSpeed + (strength * VISUAL_CONFIG.particles.speedScale);
+    return (
+      VISUAL_CONFIG.particles.baseSpeed +
+      strength * VISUAL_CONFIG.particles.speedScale
+    );
   }
 
   // ---- Scene layers: ambient and bursts ----
@@ -514,11 +1065,13 @@
     return domains.map((domain, idx) => {
       const x = Number.isFinite(domain.x)
         ? domain.x
-        : Math.cos((idx / Math.max(1, domains.length)) * Math.PI * 2) * fallbackRadius;
+        : Math.cos((idx / Math.max(1, domains.length)) * Math.PI * 2) *
+          fallbackRadius;
       const y = Number.isFinite(domain.y) ? domain.y : ((idx % 5) - 2) * 35;
       const z = Number.isFinite(domain.z)
         ? domain.z
-        : Math.sin((idx / Math.max(1, domains.length)) * Math.PI * 2) * fallbackRadius;
+        : Math.sin((idx / Math.max(1, domains.length)) * Math.PI * 2) *
+          fallbackRadius;
 
       return {
         id: domain.id,
@@ -550,19 +1103,20 @@
     for (let i = 0; i < pointCount; i += 1) {
       const anchor = anchors[i % anchors.length];
       const random = mulberry32(hashString(`${anchor.id}:p:${i}`));
-      const spread = VISUAL_CONFIG.ambient.clusterSpread * (0.68 + random() * 0.86);
+      const spread =
+        VISUAL_CONFIG.ambient.clusterSpread * (0.68 + random() * 0.86);
 
       const theta = random() * Math.PI * 2;
-      const phi = Math.acos((random() * 2) - 1);
+      const phi = Math.acos(random() * 2 - 1);
       const radius = spread * Math.pow(random(), 0.55);
 
-      const x = anchor.x + (radius * Math.sin(phi) * Math.cos(theta));
-      const y = anchor.y + (radius * Math.cos(phi)) * 0.65;
-      const z = anchor.z + (radius * Math.sin(phi) * Math.sin(theta));
+      const x = anchor.x + radius * Math.sin(phi) * Math.cos(theta);
+      const y = anchor.y + radius * Math.cos(phi) * 0.65;
+      const z = anchor.z + radius * Math.sin(phi) * Math.sin(theta);
 
-      pointPositions[(i * 3) + 0] = x;
-      pointPositions[(i * 3) + 1] = y;
-      pointPositions[(i * 3) + 2] = z;
+      pointPositions[i * 3 + 0] = x;
+      pointPositions[i * 3 + 1] = y;
+      pointPositions[i * 3 + 2] = z;
       anchorPerPoint[i] = i % anchors.length;
     }
 
@@ -597,14 +1151,19 @@
     }
 
     const pointGeometry = new THREE.BufferGeometry();
-    pointGeometry.setAttribute("position", new THREE.BufferAttribute(pointPositions, 3));
+    pointGeometry.setAttribute(
+      "position",
+      new THREE.BufferAttribute(pointPositions, 3),
+    );
 
     const pointMaterial = new THREE.PointsMaterial({
       color: VISUAL_CONFIG.ambient.pointColor,
       size: VISUAL_CONFIG.ambient.pointSize,
       sizeAttenuation: true,
       transparent: true,
-      opacity: VISUAL_CONFIG.ambient.pointOpacity * performanceState.ambientOpacityFactor,
+      opacity:
+        VISUAL_CONFIG.ambient.pointOpacity *
+        performanceState.ambientOpacityFactor,
       depthWrite: false,
     });
 
@@ -613,12 +1172,17 @@
     sceneLayers.ambientPoints = points;
 
     const linkGeometry = new THREE.BufferGeometry();
-    linkGeometry.setAttribute("position", new THREE.BufferAttribute(linkPositions, 3));
+    linkGeometry.setAttribute(
+      "position",
+      new THREE.BufferAttribute(linkPositions, 3),
+    );
 
     const lineMaterial = new THREE.LineBasicMaterial({
       color: VISUAL_CONFIG.ambient.linkColor,
       transparent: true,
-      opacity: VISUAL_CONFIG.ambient.linkOpacity * performanceState.ambientOpacityFactor,
+      opacity:
+        VISUAL_CONFIG.ambient.linkOpacity *
+        performanceState.ambientOpacityFactor,
       depthWrite: false,
     });
 
@@ -647,7 +1211,12 @@
 
   function spawnBurstAtNode(node) {
     if (!graph || !sceneLayers.eventBurstLayer || !node) return;
-    if (!Number.isFinite(node.x) || !Number.isFinite(node.y) || !Number.isFinite(node.z)) return;
+    if (
+      !Number.isFinite(node.x) ||
+      !Number.isFinite(node.y) ||
+      !Number.isFinite(node.z)
+    )
+      return;
 
     const geometry = new THREE.SphereGeometry(1.8, 11, 8);
     const material = new THREE.MeshBasicMaterial({
@@ -677,15 +1246,22 @@
     }
 
     if (event.task && event.domain) {
-      return graphData.nodes.find(
-        (n) => n.type === "task" && n.task === event.task && n.domain === event.domain
-      ) || null;
+      return (
+        graphData.nodes.find(
+          (n) =>
+            n.type === "task" &&
+            n.task === event.task &&
+            n.domain === event.domain,
+        ) || null
+      );
     }
 
     if (event.domain) {
-      return graphData.nodes.find(
-        (n) => n.type === "domain" && n.domain === event.domain
-      ) || null;
+      return (
+        graphData.nodes.find(
+          (n) => n.type === "domain" && n.domain === event.domain,
+        ) || null
+      );
     }
 
     return null;
@@ -695,6 +1271,121 @@
   function getCameraPositionVector() {
     const pos = graph.cameraPosition();
     return new THREE.Vector3(pos.x, pos.y, pos.z);
+  }
+
+  function estimateGraphCenterAndRadius() {
+    const positioned = graphData.nodes.filter(
+      (node) =>
+        node.__visible !== false &&
+        Number.isFinite(node.x) &&
+        Number.isFinite(node.y) &&
+        Number.isFinite(node.z),
+    );
+
+    if (!positioned.length) {
+      return {
+        center: new THREE.Vector3(0, 0, 0),
+        radius: VISUAL_CONFIG.camera.defaultDistance * 0.45,
+      };
+    }
+
+    const center = new THREE.Vector3(0, 0, 0);
+    positioned.forEach((node) => {
+      center.x += node.x;
+      center.y += node.y;
+      center.z += node.z;
+    });
+    center.multiplyScalar(1 / positioned.length);
+
+    let maxDistSq = 0;
+    positioned.forEach((node) => {
+      const dx = node.x - center.x;
+      const dy = node.y - center.y;
+      const dz = node.z - center.z;
+      const distSq = dx * dx + dy * dy + dz * dz;
+      if (distSq > maxDistSq) maxDistSq = distSq;
+    });
+
+    const radius = Math.max(80, Math.sqrt(maxDistSq));
+    return { center, radius };
+  }
+
+  function startCameraIntro() {
+    if (!graph) return;
+
+    const { center, radius } = estimateGraphCenterAndRadius();
+    const baseDir = new THREE.Vector3(0.9, 0.32, 1).normalize();
+    const nearDistance = Math.max(0.1, VISUAL_CONFIG.camera.introNearDistance);
+    const framedDistance = Math.max(
+      VISUAL_CONFIG.camera.introFarDistance,
+      radius * 2.2,
+    );
+    const farDistance = clamp(
+      framedDistance,
+      VISUAL_CONFIG.camera.minDistance * 0.95,
+      VISUAL_CONFIG.camera.maxDistance * 0.92,
+    );
+
+    cameraState.introTarget.copy(center);
+    cameraState.target.copy(center);
+    cameraState.introFrom.copy(
+      center.clone().add(baseDir.clone().multiplyScalar(nearDistance)),
+    );
+    cameraState.introTo.copy(
+      center
+        .clone()
+        .add(baseDir.clone().multiplyScalar(farDistance))
+        .add(new THREE.Vector3(0, radius * 0.12, 0)),
+    );
+    cameraState.introStartMs = performance.now();
+    cameraState.introActive = true;
+    cameraState.introPlayed = false;
+    cameraState.nextFocusSwitchTs = 0;
+
+    graph.cameraPosition(
+      {
+        x: cameraState.introFrom.x,
+        y: cameraState.introFrom.y,
+        z: cameraState.introFrom.z,
+      },
+      {
+        x: cameraState.introTarget.x,
+        y: cameraState.introTarget.y,
+        z: cameraState.introTarget.z,
+      },
+      0,
+    );
+  }
+
+  function updateCameraIntro(nowMs) {
+    if (!graph || !cameraState.introActive) return false;
+
+    const elapsed = nowMs - cameraState.introStartMs;
+    const t = clamp(elapsed / VISUAL_CONFIG.camera.introDurationMs, 0, 1);
+    const eased = easeInOutCubic(t);
+    const x = lerp(cameraState.introFrom.x, cameraState.introTo.x, eased);
+    const y = lerp(cameraState.introFrom.y, cameraState.introTo.y, eased);
+    const z = lerp(cameraState.introFrom.z, cameraState.introTo.z, eased);
+
+    graph.cameraPosition(
+      { x, y, z },
+      {
+        x: cameraState.introTarget.x,
+        y: cameraState.introTarget.y,
+        z: cameraState.introTarget.z,
+      },
+      0,
+    );
+
+    if (t >= 1) {
+      cameraState.introActive = false;
+      cameraState.introPlayed = true;
+      cameraState.target.copy(cameraState.introTarget);
+      cameraState.nextFocusSwitchTs = nowMs + 1200;
+      return false;
+    }
+
+    return true;
   }
 
   function updateCinematicButton() {
@@ -715,6 +1406,8 @@
     if (!cameraState.cinematicEnabled) return;
     cameraState.cinematicEnabled = false;
     cameraState.userInteracted = true;
+    cameraState.introActive = false;
+    cameraState.introPlayed = true;
     updateCinematicButton();
   }
 
@@ -725,6 +1418,11 @@
     if (enabled) {
       cameraState.nextFocusSwitchTs = 0;
       cameraState.focusedNodeId = null;
+      if (!cameraState.introPlayed) {
+        startCameraIntro();
+      }
+    } else {
+      cameraState.introActive = false;
     }
 
     updateCinematicButton();
@@ -732,7 +1430,12 @@
 
   function focusNode(node, fromUser) {
     if (!graph || !node) return;
-    if (!Number.isFinite(node.x) || !Number.isFinite(node.y) || !Number.isFinite(node.z)) return;
+    if (
+      !Number.isFinite(node.x) ||
+      !Number.isFinite(node.y) ||
+      !Number.isFinite(node.z)
+    )
+      return;
 
     if (fromUser) {
       disableCinematic();
@@ -750,16 +1453,17 @@
     }
     direction.normalize();
 
-    const distance = node.type === "domain"
-      ? VISUAL_CONFIG.camera.focusDistanceDomain
-      : VISUAL_CONFIG.camera.focusDistanceTask;
+    const distance =
+      node.type === "domain"
+        ? VISUAL_CONFIG.camera.focusDistanceDomain
+        : VISUAL_CONFIG.camera.focusDistanceTask;
 
     const nextPos = target.clone().add(direction.multiplyScalar(distance));
 
     graph.cameraPosition(
       { x: nextPos.x, y: nextPos.y, z: nextPos.z },
       { x: target.x, y: target.y, z: target.z },
-      900
+      900,
     );
 
     scheduleLabelUpdate();
@@ -787,18 +1491,34 @@
     raycaster.setFromCamera(cameraState.pointerNDC, camera);
 
     const direction = raycaster.ray.direction.clone().normalize();
-    const amount = evt.deltaY < 0
-      ? VISUAL_CONFIG.camera.zoomStep
-      : -VISUAL_CONFIG.camera.zoomStep;
+    const amount =
+      evt.deltaY < 0
+        ? VISUAL_CONFIG.camera.zoomStep
+        : -VISUAL_CONFIG.camera.zoomStep;
 
     const currentPos = getCameraPositionVector();
-    let nextPos = currentPos.clone().add(direction.clone().multiplyScalar(amount));
-    const nextTarget = cameraState.target.clone().add(direction.clone().multiplyScalar(amount * VISUAL_CONFIG.camera.targetFollowFactor));
+    let nextPos = currentPos
+      .clone()
+      .add(direction.clone().multiplyScalar(amount));
+    const nextTarget = cameraState.target
+      .clone()
+      .add(
+        direction
+          .clone()
+          .multiplyScalar(amount * VISUAL_CONFIG.camera.targetFollowFactor),
+      );
 
     let distance = nextPos.distanceTo(nextTarget);
-    if (distance < VISUAL_CONFIG.camera.minDistance || distance > VISUAL_CONFIG.camera.maxDistance) {
+    if (
+      distance < VISUAL_CONFIG.camera.minDistance ||
+      distance > VISUAL_CONFIG.camera.maxDistance
+    ) {
       const dir = nextPos.clone().sub(nextTarget).normalize();
-      distance = clamp(distance, VISUAL_CONFIG.camera.minDistance, VISUAL_CONFIG.camera.maxDistance);
+      distance = clamp(
+        distance,
+        VISUAL_CONFIG.camera.minDistance,
+        VISUAL_CONFIG.camera.maxDistance,
+      );
       nextPos = nextTarget.clone().add(dir.multiplyScalar(distance));
     }
 
@@ -807,7 +1527,7 @@
     graph.cameraPosition(
       { x: nextPos.x, y: nextPos.y, z: nextPos.z },
       { x: nextTarget.x, y: nextTarget.y, z: nextTarget.z },
-      120
+      120,
     );
 
     scheduleLabelUpdate();
@@ -815,8 +1535,16 @@
 
   function pickNextCinematicTarget() {
     const domains = graphData.nodes
-      .filter((n) => n.type === "domain" && Number.isFinite(n.x) && Number.isFinite(n.y) && Number.isFinite(n.z))
-      .sort((a, b) => (b.__activityNormalized || 0) - (a.__activityNormalized || 0));
+      .filter(
+        (n) =>
+          n.type === "domain" &&
+          Number.isFinite(n.x) &&
+          Number.isFinite(n.y) &&
+          Number.isFinite(n.z),
+      )
+      .sort(
+        (a, b) => (b.__activityNormalized || 0) - (a.__activityNormalized || 0),
+      );
 
     if (!domains.length) return null;
 
@@ -824,7 +1552,9 @@
       return domains[0];
     }
 
-    const idx = domains.findIndex((n) => n.id === cameraState.cinematicTargetId);
+    const idx = domains.findIndex(
+      (n) => n.id === cameraState.cinematicTargetId,
+    );
     if (idx < 0) return domains[0];
 
     return domains[(idx + 1) % domains.length];
@@ -839,7 +1569,8 @@
       if (targetNode) {
         cameraState.cinematicTargetId = targetNode.id;
       }
-      cameraState.nextFocusSwitchTs = nowMs + VISUAL_CONFIG.camera.cinematicSwitchMs;
+      cameraState.nextFocusSwitchTs =
+        nowMs + VISUAL_CONFIG.camera.cinematicSwitchMs;
     }
 
     const targetNode = cameraState.cinematicTargetId
@@ -848,16 +1579,21 @@
 
     if (!targetNode || !Number.isFinite(targetNode.x)) return;
 
-    const desiredTarget = new THREE.Vector3(targetNode.x, targetNode.y, targetNode.z);
+    const desiredTarget = new THREE.Vector3(
+      targetNode.x,
+      targetNode.y,
+      targetNode.z,
+    );
     cameraState.target.lerp(desiredTarget, 0.035);
 
     cameraState.orbitAngle += dtMs * VISUAL_CONFIG.camera.cinematicOrbitSpeed;
 
     const radiusBase = VISUAL_CONFIG.camera.defaultDistance;
     const radius = radiusBase * (0.88 + 0.17 * Math.sin(nowMs * 0.00017));
-    const height = cameraState.target.y
-      + VISUAL_CONFIG.camera.cinematicHeight
-      + Math.sin(nowMs * 0.00023) * VISUAL_CONFIG.camera.cinematicBob;
+    const height =
+      cameraState.target.y +
+      VISUAL_CONFIG.camera.cinematicHeight +
+      Math.sin(nowMs * 0.00023) * VISUAL_CONFIG.camera.cinematicBob;
 
     const nextPos = {
       x: cameraState.target.x + Math.cos(cameraState.orbitAngle) * radius,
@@ -865,11 +1601,15 @@
       z: cameraState.target.z + Math.sin(cameraState.orbitAngle) * radius,
     };
 
-    graph.cameraPosition(nextPos, {
-      x: cameraState.target.x,
-      y: cameraState.target.y,
-      z: cameraState.target.z,
-    }, 0);
+    graph.cameraPosition(
+      nextPos,
+      {
+        x: cameraState.target.x,
+        y: cameraState.target.y,
+        z: cameraState.target.z,
+      },
+      0,
+    );
   }
 
   function setupInputListeners() {
@@ -904,12 +1644,17 @@
     const activity = node.__activityNormalized || 0;
     if (activity >= VISUAL_CONFIG.labels.activityThreshold) return true;
 
-    if (!Number.isFinite(node.x) || !Number.isFinite(node.y) || !Number.isFinite(node.z)) return false;
+    if (
+      !Number.isFinite(node.x) ||
+      !Number.isFinite(node.y) ||
+      !Number.isFinite(node.z)
+    )
+      return false;
 
     const dx = cameraPos.x - node.x;
     const dy = cameraPos.y - node.y;
     const dz = cameraPos.z - node.z;
-    const distance = Math.sqrt((dx * dx) + (dy * dy) + (dz * dz));
+    const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
     return distance <= VISUAL_CONFIG.labels.nearDistance;
   }
@@ -918,7 +1663,8 @@
     if (!graph) return;
 
     const now = performance.now();
-    if ((now - labelState.lastUpdate) < VISUAL_CONFIG.labels.updateThrottleMs) return;
+    if (now - labelState.lastUpdate < VISUAL_CONFIG.labels.updateThrottleMs)
+      return;
     labelState.lastUpdate = now;
 
     const cameraPos = getCameraPositionVector();
@@ -935,8 +1681,25 @@
         return;
       }
 
+      if (
+        replayState.active &&
+        replayNodeProgress(node, replayState.nowMs) < 0.82
+      ) {
+        label.visible = false;
+        return;
+      }
+
       if (node.type === "domain") {
-        label.visible = true;
+        if (hoverState.activeNodeId) {
+          label.visible = hoverState.activeNodeIds.has(node.id);
+        } else {
+          label.visible = true;
+        }
+        return;
+      }
+
+      if (hoverState.activeNodeId) {
+        label.visible = hoverState.activeNodeIds.has(node.id);
         return;
       }
 
@@ -956,50 +1719,71 @@
 
   // ---- Runtime animation loops ----
   function updatePerformanceBudget(dtMs) {
-    performanceState.frameAvgMs = (performanceState.frameAvgMs * 0.92) + (dtMs * 0.08);
+    const prevParticleFactor = performanceState.particleFactor;
+    performanceState.frameAvgMs =
+      performanceState.frameAvgMs * 0.92 + dtMs * 0.08;
 
     if (performanceState.frameAvgMs > VISUAL_CONFIG.performance.degradeMs) {
       performanceState.particleFactor = clamp(
         performanceState.particleFactor - VISUAL_CONFIG.performance.stepDown,
         VISUAL_CONFIG.performance.floorFactor,
-        1
+        1,
       );
       performanceState.ambientOpacityFactor = clamp(
-        performanceState.ambientOpacityFactor - VISUAL_CONFIG.performance.stepDown,
+        performanceState.ambientOpacityFactor -
+          VISUAL_CONFIG.performance.stepDown,
         VISUAL_CONFIG.performance.floorFactor,
-        1
+        1,
       );
-    } else if (performanceState.frameAvgMs < VISUAL_CONFIG.performance.recoverMs) {
+    } else if (
+      performanceState.frameAvgMs < VISUAL_CONFIG.performance.recoverMs
+    ) {
       performanceState.particleFactor = clamp(
         performanceState.particleFactor + VISUAL_CONFIG.performance.stepUp,
         VISUAL_CONFIG.performance.floorFactor,
-        1
+        1,
       );
       performanceState.ambientOpacityFactor = clamp(
-        performanceState.ambientOpacityFactor + VISUAL_CONFIG.performance.stepUp,
+        performanceState.ambientOpacityFactor +
+          VISUAL_CONFIG.performance.stepUp,
         VISUAL_CONFIG.performance.floorFactor,
-        1
+        1,
       );
     }
 
     if (sceneLayers.ambientPoints && sceneLayers.ambientPoints.material) {
-      sceneLayers.ambientPoints.material.opacity = VISUAL_CONFIG.ambient.pointOpacity * performanceState.ambientOpacityFactor;
+      sceneLayers.ambientPoints.material.opacity =
+        VISUAL_CONFIG.ambient.pointOpacity *
+        performanceState.ambientOpacityFactor;
     }
 
     if (sceneLayers.ambientLinks && sceneLayers.ambientLinks.material) {
-      sceneLayers.ambientLinks.material.opacity = VISUAL_CONFIG.ambient.linkOpacity * performanceState.ambientOpacityFactor;
+      sceneLayers.ambientLinks.material.opacity =
+        VISUAL_CONFIG.ambient.linkOpacity *
+        performanceState.ambientOpacityFactor;
+    }
+
+    // Only recompute particle budgets when performance tier meaningfully changes.
+    if (
+      Math.abs(prevParticleFactor - performanceState.particleFactor) > 0.009
+    ) {
+      particleBudgetState.dirty = true;
     }
   }
 
   function updateAmbientMotion(dtMs) {
     if (sceneLayers.ambientPoints) {
-      sceneLayers.ambientPoints.rotation.y += dtMs * VISUAL_CONFIG.ambient.motionY;
-      sceneLayers.ambientPoints.rotation.x += dtMs * VISUAL_CONFIG.ambient.motionX;
+      sceneLayers.ambientPoints.rotation.y +=
+        dtMs * VISUAL_CONFIG.ambient.motionY;
+      sceneLayers.ambientPoints.rotation.x +=
+        dtMs * VISUAL_CONFIG.ambient.motionX;
     }
 
     if (sceneLayers.ambientLinks) {
-      sceneLayers.ambientLinks.rotation.y += dtMs * (VISUAL_CONFIG.ambient.motionY * 0.9);
-      sceneLayers.ambientLinks.rotation.x += dtMs * (VISUAL_CONFIG.ambient.motionX * 0.9);
+      sceneLayers.ambientLinks.rotation.y +=
+        dtMs * (VISUAL_CONFIG.ambient.motionY * 0.9);
+      sceneLayers.ambientLinks.rotation.x +=
+        dtMs * (VISUAL_CONFIG.ambient.motionX * 0.9);
     }
   }
 
@@ -1009,24 +1793,98 @@
 
       const data = node.__threeObj.userData;
       if (!data) return;
+      const replayProgress = replayNodeProgress(node, nowMs);
+      const replayScale = lerp(
+        VISUAL_CONFIG.replay.minScale,
+        1,
+        replayProgress,
+      );
+      const replayOpacity = clamp(replayProgress * 1.08, 0, 1);
 
       const activity = node.__activityNormalized || 0;
-      const pulse = 0.5 + (0.5 * Math.sin((nowMs * VISUAL_CONFIG.motion.nodePulseSpeed) + data.pulsePhase));
+      const pulse =
+        0.5 +
+        0.5 *
+          Math.sin(
+            nowMs * VISUAL_CONFIG.motion.nodePulseSpeed + data.pulsePhase,
+          );
+      const hoverActive = !!hoverState.activeNodeId;
+      const isHoverFocus = hoverState.activeNodeId === node.id;
+      const isHoverNeighbor =
+        hoverActive && !isHoverFocus && hoverState.activeNodeIds.has(node.id);
+      const isDimmed = hoverActive && !hoverState.activeNodeIds.has(node.id);
 
       const maxScale = VISUAL_CONFIG.motion.nodePulseMaxScale;
       const minScale = VISUAL_CONFIG.motion.nodePulseMinScale;
-      const scale = minScale + ((maxScale - minScale) * pulse * (0.35 + activity * 0.65));
+      let scale =
+        minScale + (maxScale - minScale) * pulse * (0.35 + activity * 0.65);
+      if (isHoverFocus) {
+        scale *= VISUAL_CONFIG.hover.focusNodeScaleFactor;
+      } else if (isHoverNeighbor) {
+        scale *= VISUAL_CONFIG.hover.neighborNodeScaleFactor;
+      } else if (isDimmed) {
+        scale *= VISUAL_CONFIG.hover.dimNodeScaleFactor;
+      }
 
+      scale *= replayScale;
       node.__threeObj.scale.set(scale, scale, scale);
 
+      let opacityFactor = 1;
+      if (isHoverFocus) {
+        opacityFactor = VISUAL_CONFIG.hover.focusNodeOpacityFactor;
+      } else if (isHoverNeighbor) {
+        opacityFactor = VISUAL_CONFIG.hover.neighborNodeOpacityFactor;
+      } else if (isDimmed) {
+        opacityFactor = VISUAL_CONFIG.hover.dimNodeOpacityFactor;
+      }
+
       if (data.coreMaterial) {
-        data.coreMaterial.opacity = data.baseCoreOpacity * (0.90 + (pulse * 0.14));
+        data.coreMaterial.opacity = clamp(
+          data.baseCoreOpacity *
+            (0.9 + pulse * 0.14) *
+            opacityFactor *
+            replayOpacity,
+          0.0,
+          1,
+        );
       }
       if (data.innerGlowMaterial) {
-        data.innerGlowMaterial.opacity = data.baseInnerOpacity * (0.86 + (pulse * 0.22));
+        data.innerGlowMaterial.opacity = clamp(
+          data.baseInnerOpacity *
+            (0.86 + pulse * 0.22) *
+            opacityFactor *
+            replayOpacity,
+          0.0,
+          1,
+        );
       }
       if (data.outerGlowMaterial) {
-        data.outerGlowMaterial.opacity = data.baseOuterOpacity * (0.88 + (pulse * 0.18));
+        data.outerGlowMaterial.opacity = clamp(
+          data.baseOuterOpacity *
+            (0.88 + pulse * 0.18) *
+            opacityFactor *
+            replayOpacity,
+          0.0,
+          1,
+        );
+      }
+
+      if (data.labelSprite?.material) {
+        if (replayProgress < 0.82) {
+          data.labelSprite.material.opacity = 0;
+        } else if (isDimmed) {
+          data.labelSprite.material.opacity =
+            VISUAL_CONFIG.hover.dimLabelOpacity;
+        } else if (isHoverFocus) {
+          data.labelSprite.material.opacity = 0.98;
+        } else if (isHoverNeighbor) {
+          data.labelSprite.material.opacity = 0.84;
+        } else if (node.type === "domain") {
+          data.labelSprite.material.opacity =
+            VISUAL_CONFIG.labels.domainOpacity;
+        } else {
+          data.labelSprite.material.opacity = VISUAL_CONFIG.labels.taskOpacity;
+        }
       }
     });
   }
@@ -1047,11 +1905,12 @@
         continue;
       }
 
-      const scale = 1 + (t * VISUAL_CONFIG.bursts.scale);
+      const scale = 1 + t * VISUAL_CONFIG.bursts.scale;
       burst.scale.set(scale, scale, scale);
 
       if (burst.material) {
-        burst.material.opacity = burst.userData.baseOpacity * Math.pow(1 - t, 1.35);
+        burst.material.opacity =
+          burst.userData.baseOpacity * Math.pow(1 - t, 1.35);
       }
     }
   }
@@ -1062,11 +1921,17 @@
     const damping = VISUAL_CONFIG.layout.velocityDamping;
 
     graphData.nodes.forEach((node) => {
-      if (!Number.isFinite(node.x) || !Number.isFinite(node.y) || !Number.isFinite(node.z)) {
+      if (
+        !Number.isFinite(node.x) ||
+        !Number.isFinite(node.y) ||
+        !Number.isFinite(node.z)
+      ) {
         return;
       }
 
-      const dist = Math.sqrt((node.x * node.x) + (node.y * node.y) + (node.z * node.z));
+      const dist = Math.sqrt(
+        node.x * node.x + node.y * node.y + node.z * node.z,
+      );
       if (dist <= radius) return;
 
       const overshoot = dist - radius;
@@ -1082,18 +1947,53 @@
     });
   }
 
+  function updateReplayAnimation(nowMs) {
+    // Keep replay driven by the same frame loop as camera + node motion.
+    // A single RAF path avoids timer contention and reduces stutter on dense graphs.
+    replayState.nowMs = nowMs;
+    if (!replayState.active) return;
+
+    const elapsed = nowMs - replayState.startMs;
+    const endMs =
+      replayState.durationMs +
+      Math.max(
+        VISUAL_CONFIG.replay.nodeEaseMs,
+        VISUAL_CONFIG.replay.linkEaseMs,
+      ) +
+      40;
+
+    if (elapsed >= endMs) {
+      finishReplayGrowth();
+      return;
+    }
+  }
+
   function frameLoop(nowMs) {
     const dtMs = Math.min(80, nowMs - cameraState.lastFrameTs);
     cameraState.lastFrameTs = nowMs;
     performanceState.runningMs += dtMs;
 
+    updateReplayAnimation(nowMs);
     updatePerformanceBudget(dtMs);
+    updateParticleBudget(false);
     updateAmbientMotion(dtMs);
     updateNodeBreathing(nowMs);
     updateEventBursts(dtMs);
     applyContainment();
 
-    if (cameraState.cinematicEnabled && !cameraState.userInteracted) {
+    const introRunning =
+      cameraState.cinematicEnabled &&
+      !cameraState.userInteracted &&
+      updateCameraIntro(nowMs);
+    if (introRunning) {
+      scheduleLabelUpdate();
+    }
+
+    if (
+      cameraState.cinematicEnabled &&
+      !cameraState.userInteracted &&
+      !introRunning
+    ) {
       updateCinematicCamera(dtMs, nowMs);
       scheduleLabelUpdate();
     }
@@ -1105,6 +2005,7 @@
     if (cameraState.renderStarted) return;
     cameraState.renderStarted = true;
     cameraState.lastFrameTs = performance.now();
+    replayState.nowMs = cameraState.lastFrameTs;
     requestAnimationFrame(frameLoop);
   }
 
@@ -1113,7 +2014,14 @@
     const res = await fetch("/api/graph");
     graphData = await res.json();
     computeDerivedMetrics();
-    initGraph();
+    let initOk = false;
+    try {
+      initGraph();
+      initOk = true;
+    } catch (err) {
+      console.error("Graph init failed:", err);
+    }
+    if (!initOk) return;
     updateStats();
     loadHistory();
   }
@@ -1124,43 +2032,56 @@
     historyEvents = data.events || [];
 
     if (historyEvents.length > 0) {
-      const timestamps = historyEvents.map((e) => new Date(e.timestamp).getTime());
+      const timestamps = historyEvents.map((e) =>
+        new Date(e.timestamp).getTime(),
+      );
       timelineRange.min = Math.min(...timestamps);
       timelineRange.max = Math.max(...timestamps, Date.now());
     }
 
     updateTimelineLabel(1000);
+    applyTimeFilter(currentTimeValue);
   }
 
   function setupBloom() {
-    const renderer = graph.renderer();
-    const scene = graph.scene();
-    const camera = graph.camera();
+    try {
+      const renderer = graph.renderer();
+      const scene = graph.scene();
+      const camera = graph.camera();
 
-    const composer = new THREE.EffectComposer(renderer);
-    const renderPass = new THREE.RenderPass(scene, camera);
-    composer.addPass(renderPass);
+      const composer = new THREE.EffectComposer(renderer);
+      const renderPass = new THREE.RenderPass(scene, camera);
+      composer.addPass(renderPass);
 
-    const bloomPass = new THREE.UnrealBloomPass(
-      new THREE.Vector2(window.innerWidth, window.innerHeight),
-      VISUAL_CONFIG.bloom.strength,
-      VISUAL_CONFIG.bloom.radius,
-      VISUAL_CONFIG.bloom.threshold
-    );
-    composer.addPass(bloomPass);
+      const bloomPass = new THREE.UnrealBloomPass(
+        new THREE.Vector2(window.innerWidth, window.innerHeight),
+        VISUAL_CONFIG.bloom.strength,
+        VISUAL_CONFIG.bloom.radius,
+        VISUAL_CONFIG.bloom.threshold,
+      );
+      composer.addPass(bloomPass);
 
-    graph.postProcessingComposer(composer);
+      graph.postProcessingComposer(composer);
+    } catch (err) {
+      // Keep graph functional if post-processing scripts fail to load.
+      console.warn("Bloom pipeline disabled:", err);
+    }
   }
 
   function initGraph() {
-    graph = ForceGraph3D()(dom.graph)
+    graph = ForceGraph3D()(dom.graph);
+    if (!graph) {
+      throw new Error("ForceGraph3D initialization returned no instance");
+    }
+
+    graph
       .graphData(graphData)
       .backgroundColor(VISUAL_CONFIG.background)
       .showNavInfo(false)
       .nodeRelSize(1)
       .nodeVal((node) => {
         if (node.type === "domain") return 40;
-        return Math.max(3, 3 + ((node.__activityNormalized || 0) * 10));
+        return Math.max(3, 3 + (node.__activityNormalized || 0) * 10);
       })
       .nodeColor((node) => {
         if (node.type === "domain") return "rgb(160,160,160)";
@@ -1179,20 +2100,29 @@
         focusNode(node, true);
       })
       .onNodeHover((node) => {
-        cameraState.hoveredNodeId = node ? node.id : null;
-        scheduleLabelUpdate();
-      })
-      .d3Force("charge").strength((node) => {
+        handleHoverIntent(node);
+      });
+
+    const chargeForce =
+      typeof graph.d3Force === "function" ? graph.d3Force("charge") : null;
+    if (chargeForce && typeof chargeForce.strength === "function") {
+      chargeForce.strength((node) => {
         if (node.type === "domain") return -900;
         return -220;
       });
+    }
 
-    graph.d3Force("link").distance((link) => {
-      if (link.type === "cross") return 130;
-      return 72;
-    });
+    const linkForce =
+      typeof graph.d3Force === "function" ? graph.d3Force("link") : null;
+    if (linkForce && linkForce.distance) {
+      linkForce.distance((link) => {
+        if (link.type === "cross") return 130;
+        return 72;
+      });
+    }
 
-    const centerForce = graph.d3Force("center");
+    const centerForce =
+      typeof graph.d3Force === "function" ? graph.d3Force("center") : null;
     if (centerForce && centerForce.x && centerForce.y && centerForce.z) {
       centerForce.x(0).y(0).z(0);
     }
@@ -1201,25 +2131,42 @@
     ensureEventBurstLayer();
     setupInputListeners();
 
-    // Startup camera move for drama.
-    graph.cameraPosition({ x: 0, y: 0, z: 860 }, { x: 0, y: 0, z: 0 }, 0);
-    setTimeout(() => {
-      graph.cameraPosition({ x: 0, y: 90, z: VISUAL_CONFIG.camera.defaultDistance }, { x: 0, y: 0, z: 0 }, 2400);
-    }, 200);
+    // Intro starts at network center and smoothly pulls back to frame the map.
+    requestAnimationFrame(() => {
+      if (cameraState.cinematicEnabled) {
+        startCameraIntro();
+      }
+    });
 
     scheduleAmbientRebuild(1200);
     scheduleLabelUpdate();
     startFrameLoop();
+
+    // Run composite visibility after the graph has entered its first render frame.
+    requestAnimationFrame(() => {
+      try {
+        applyCompositeVisibility();
+      } catch (err) {
+        console.error("Initial visibility bootstrap failed:", err);
+      }
+    });
   }
 
   // ---- Detail panel ----
-  function updateDetailPanel(node, confidence, runCount, actionsHtml, tracesRows) {
-    dom.detailTitle.textContent = node.type === "domain" ? node.domain : node.task;
-    dom.detailDomain.textContent = node.type === "domain" ? "DOMAIN" : node.domain;
+  function updateDetailPanel(
+    node,
+    confidence,
+    runCount,
+    actionsHtml,
+    tracesRows,
+  ) {
+    dom.detailTitle.textContent =
+      node.type === "domain" ? node.domain : node.task;
+    dom.detailDomain.textContent =
+      node.type === "domain" ? "DOMAIN" : node.domain;
 
     dom.detailConfidenceBar.style.width = `${(confidence * 100).toFixed(2)}%`;
-    dom.detailConfidenceBar.style.background =
-      `linear-gradient(90deg, rgb(100, 105, 115) 0%, ${confidenceColor(confidence)} 100%)`;
+    dom.detailConfidenceBar.style.background = `linear-gradient(90deg, rgb(100, 105, 115) 0%, ${confidenceColor(confidence)} 100%)`;
 
     dom.detailConfidenceText.textContent = `${(confidence * 100).toFixed(1)}%`;
     dom.detailRuns.textContent = runCount || 0;
@@ -1274,13 +2221,19 @@
       ? tasks.reduce((sum, n) => sum + (n.confidence || 0), 0) / tasks.length
       : 0;
     const realNodes = graphData.nodes.length;
-    const ambientVisuals = VISUAL_CONFIG.ambient.pointsCount + VISUAL_CONFIG.ambient.linksCount;
+    const ambientVisuals =
+      VISUAL_CONFIG.ambient.pointsCount + VISUAL_CONFIG.ambient.linksCount;
 
     if (firstLoad) {
       animateValue(dom.statDomains, domains.length, 1200, false);
       animateValue(dom.statTasks, tasks.length, 1200, false);
       animateValue(dom.statRuns, totalRuns, 1800, false);
-      animateValue(dom.statConfidence, Math.round(avgConfidence * 100), 1200, true);
+      animateValue(
+        dom.statConfidence,
+        Math.round(avgConfidence * 100),
+        1200,
+        true,
+      );
       animateValue(dom.statRealNodes, realNodes, 1300, false);
       animateValue(dom.statAmbientVisuals, ambientVisuals, 1300, false);
       firstLoad = false;
@@ -1315,7 +2268,11 @@
   function handleWSEvent(event) {
     if (!event) return;
 
-    if (event.type === "node_added" || event.type === "node_updated" || event.type === "step_recorded") {
+    if (
+      event.type === "node_added" ||
+      event.type === "node_updated" ||
+      event.type === "step_recorded"
+    ) {
       refreshGraph().then(() => {
         const node = findNodeFromEvent(event);
         spawnBurstAtNode(node);
@@ -1325,6 +2282,11 @@
 
   // ---- Graph refresh ----
   function refreshGraph() {
+    if (replayState.active) {
+      replayState.queuedRefresh = true;
+      return Promise.resolve();
+    }
+
     if (refreshPending) return Promise.resolve();
     refreshPending = true;
 
@@ -1336,7 +2298,11 @@
 
           const posMap = {};
           graphData.nodes.forEach((node) => {
-            if (Number.isFinite(node.x) && Number.isFinite(node.y) && Number.isFinite(node.z)) {
+            if (
+              Number.isFinite(node.x) &&
+              Number.isFinite(node.y) &&
+              Number.isFinite(node.z)
+            ) {
               posMap[node.id] = {
                 x: node.x,
                 y: node.y,
@@ -1355,13 +2321,13 @@
             }
 
             const domainNode = graphData.nodes.find(
-              (d) => d.type === "domain" && d.domain === node.domain
+              (d) => d.type === "domain" && d.domain === node.domain,
             );
 
             if (domainNode && Number.isFinite(domainNode.x)) {
-              node.x = domainNode.x + ((Math.random() - 0.5) * 20);
-              node.y = domainNode.y + ((Math.random() - 0.5) * 20);
-              node.z = domainNode.z + ((Math.random() - 0.5) * 20);
+              node.x = domainNode.x + (Math.random() - 0.5) * 20;
+              node.y = domainNode.y + (Math.random() - 0.5) * 20;
+              node.z = domainNode.z + (Math.random() - 0.5) * 20;
             }
           });
 
@@ -1370,10 +2336,7 @@
 
           graph.graphData(graphData);
           updateStats();
-
-          if (currentTimeValue < 1000) {
-            applyTimeFilter(currentTimeValue);
-          }
+          applyTimeFilter(currentTimeValue);
 
           scheduleAmbientRebuild(450);
           scheduleLabelUpdate();
@@ -1401,6 +2364,10 @@
     dom.btnSimulate.textContent = "Simulate Agent Run";
   });
 
+  if (dom.btnReplayGrowth) {
+    dom.btnReplayGrowth.addEventListener("click", startReplayGrowth);
+  }
+
   dom.chkAuto.addEventListener("change", async (evt) => {
     const action = evt.target.checked ? "start" : "stop";
     await fetch(`/api/auto-simulate/${action}`, { method: "POST" });
@@ -1410,8 +2377,11 @@
     dom.detailPanel.classList.remove("open");
   });
 
+  setReplayControlsLocked(false);
+
   // ---- Timeline ----
   dom.timelineSlider.addEventListener("input", () => {
+    if (replayState.active) return;
     currentTimeValue = parseInt(dom.timelineSlider.value, 10);
     applyTimeFilter(currentTimeValue);
     updateTimelineLabel(currentTimeValue);
@@ -1422,6 +2392,7 @@
   dom.timelinePlay.addEventListener("click", togglePlay);
 
   function togglePlay() {
+    if (replayState.active) return;
     isPlaying = !isPlaying;
     dom.timelinePlay.innerHTML = isPlaying ? "&#9646;&#9646;" : "&#9654;";
 
@@ -1452,16 +2423,32 @@
 
   function updateTimelineLabel(value) {
     const t = value / 1000;
-    const ts = timelineRange.min + (t * (timelineRange.max - timelineRange.min));
+    const ts = timelineRange.min + t * (timelineRange.max - timelineRange.min);
     const date = new Date(ts);
-    dom.timelineDate.textContent = value >= 1000 ? "LIVE" : date.toLocaleString();
+    dom.timelineDate.textContent =
+      value >= 1000 ? "LIVE" : date.toLocaleString();
   }
 
   function applyTimeFilter(value) {
-    if (!historyEvents.length || !graph) return;
+    if (!graph) return;
+
+    if (!historyEvents.length || value >= 1000) {
+      graphData.nodes.forEach((node) => {
+        node.__timelineVisible = true;
+        if (node.type === "task") {
+          node.__displayConfidence = node.confidence;
+        }
+      });
+      graphData.links.forEach((link) => {
+        link.__timelineVisible = true;
+      });
+      applyCompositeVisibility();
+      return;
+    }
 
     const t = value / 1000;
-    const cutoffTs = timelineRange.min + (t * (timelineRange.max - timelineRange.min));
+    const cutoffTs =
+      timelineRange.min + t * (timelineRange.max - timelineRange.min);
 
     const visibleTaskIds = new Set();
     const taskConfidence = {};
@@ -1477,36 +2464,27 @@
     graphData.nodes.forEach((node) => {
       if (node.type === "domain") {
         const hasVisibleTasks = graphData.nodes.some(
-          (task) => task.type === "task"
-            && task.domain === node.domain
-            && visibleTaskIds.has(task.id)
+          (task) =>
+            task.type === "task" &&
+            task.domain === node.domain &&
+            visibleTaskIds.has(task.id),
         );
-        node.__visible = value >= 1000 || hasVisibleTasks;
+        node.__timelineVisible = hasVisibleTasks;
       } else {
-        node.__visible = value >= 1000 || visibleTaskIds.has(node.id);
-        if (taskConfidence[node.id] !== undefined && value < 1000) {
+        node.__timelineVisible = visibleTaskIds.has(node.id);
+        if (taskConfidence[node.id] !== undefined) {
           node.__displayConfidence = taskConfidence[node.id];
         } else {
           node.__displayConfidence = node.confidence;
         }
       }
-
-      if (node.__threeObj) {
-        node.__threeObj.visible = node.__visible !== false;
-      }
     });
 
     graphData.links.forEach((link) => {
-      const source = nodeById.get(safeNodeId(link.source));
-      const target = nodeById.get(safeNodeId(link.target));
-      link.__visible = (source?.__visible !== false) && (target?.__visible !== false);
+      link.__timelineVisible = true;
     });
 
-    graph
-      .nodeVisibility((node) => node.__visible !== false)
-      .linkVisibility((link) => link.__visible !== false);
-
-    scheduleLabelUpdate();
+    applyCompositeVisibility();
   }
 
   // ---- Boot ----

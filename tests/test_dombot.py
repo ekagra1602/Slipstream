@@ -8,12 +8,24 @@ Simulates the full lifecycle:
   4. Store trace — full run recorded
   5. Edge cases — low confidence, domain mismatch, etc.
 
-Run:  python tests/test_dombot.py
+Run (opt-in UI/runtime path):
+  DOMBOT_RUN_UI_TESTS=1 python -m pytest tests/test_dombot.py -q
+  DOMBOT_RUN_UI_TESTS=1 python tests/test_dombot.py
 """
 
 import asyncio
 import os
 import sys
+
+if "pytest" in sys.modules:
+    import pytest
+
+    pytestmark = pytest.mark.ui_dependent
+    if os.getenv("DOMBOT_RUN_UI_TESTS") != "1":
+        pytest.skip(
+            "Set DOMBOT_RUN_UI_TESTS=1 to run tests/test_dombot.py",
+            allow_module_level=True,
+        )
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -22,9 +34,7 @@ from dombot.db import (
     clear_store,
     get_step_log,
     get_trace_log,
-    query_context,
     seed_task_node,
-    store_step,
     store_trace,
 )
 from dombot.prompts import DOMBOT_SYSTEM_PROMPT, format_optimal_path
@@ -184,7 +194,7 @@ async def test_report_stores_steps():
 
     check("returns step recorded", "[DomBot] Step recorded" in r1.extracted_content)
 
-    r2 = await dombot_report(
+    await dombot_report(
         params=DomBotReportParams(
             task_description="buy a macbook on walmart",
             action_taken="click",
@@ -194,7 +204,7 @@ async def test_report_stores_steps():
         )
     )
 
-    r3 = await dombot_report(
+    await dombot_report(
         params=DomBotReportParams(
             task_description="buy a macbook on walmart",
             action_taken="click",

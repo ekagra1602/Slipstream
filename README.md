@@ -85,6 +85,33 @@ import os
 from pymongo import MongoClient
 ```
 
+## Launch Quality Gate
+
+Run the blocking launch checks (syntax, lint, formatting, and core tests):
+
+```bash
+python scripts/quality_gate.py
+```
+
+Install local hook enforcement (runs the same gate on commit):
+
+```bash
+pip install -r requirements-dev.txt
+npm install
+pre-commit install
+```
+
+Default blocking pytest scope excludes opt-in suites:
+- `tests/test_db_live.py` (`live_db` marker)
+- `tests/test_dombot.py` (`ui_dependent` marker)
+
+Run optional suites explicitly:
+
+```bash
+DOMBOT_RUN_LIVE_DB_TESTS=1 python -m pytest tests/test_db_live.py -q -m live_db
+DOMBOT_RUN_UI_TESTS=1 python -m pytest tests/test_dombot.py -q -m ui_dependent
+```
+
 ## Caching and Invalidation Strategy
 
 DomBot uses a structural cache key:
