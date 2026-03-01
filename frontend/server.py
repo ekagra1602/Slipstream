@@ -21,7 +21,7 @@ from db.db import (  # noqa: E402
     store_trace,
 )
 
-app = FastAPI(title="DomBot Knowledge Graph")
+app = FastAPI(title="Slipstream Knowledge Graph")
 
 STATIC_DIR = Path(__file__).resolve().parent
 
