@@ -212,7 +212,7 @@ async def test_report_stores_steps():
     check("step 1 action is 'type'", step1["action"] == "type")
     check("step 1 target is 'search input'", step1["target"] == "search input")
     check("step 1 success is True", step1["success"] is True)
-    check("step 1 domain extracted from URL", step1["domain"] == "www.walmart.com")
+    check("step 1 domain extracted from URL", step1["domain"] == "walmart.com")
     check("step 1 notes preserved", step1["notes"] == "Typed search query")
 
     step3 = log[2]

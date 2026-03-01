@@ -3,6 +3,7 @@ import logging
 from browser_use import ActionResult, Tools
 from pydantic import BaseModel, Field
 
+from dombot.domain_utils import canonicalize_domain
 from dombot.prompts import format_optimal_path
 
 logger = logging.getLogger("dombot")
@@ -46,9 +47,10 @@ async def dombot_query(params: DomBotQueryParams) -> ActionResult:
     """Query past successful runs for an optimal action path."""
     from dombot.db import query_context
 
-    logger.info(f">>> dombot_query called | task={params.task_description!r} domain={params.domain!r}")
+    domain = canonicalize_domain(params.domain) or params.domain
+    logger.info(f">>> dombot_query called | task={params.task_description!r} domain={domain!r}")
 
-    result = query_context(params.task_description, params.domain)
+    result = query_context(params.task_description, domain)
 
     if result is None:
         logger.info(">>> dombot_query result: NO DATA (cold start)")
@@ -72,7 +74,10 @@ async def dombot_report(params: DomBotReportParams) -> ActionResult:
     """Report a completed step so DomBot can learn from it."""
     from dombot.db import store_step
 
-    domain = params.current_url.split("/")[2] if "/" in params.current_url else params.current_url
+    domain = canonicalize_domain(params.current_url)
+    if not domain:
+        raw_domain = params.current_url.split("/")[2] if "/" in params.current_url else params.current_url
+        domain = canonicalize_domain(raw_domain) or raw_domain
 
     logger.info(
         f">>> dombot_report called | action={params.action_taken!r} "

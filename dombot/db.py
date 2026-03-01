@@ -21,6 +21,8 @@ import os
 from dataclasses import dataclass, field
 from typing import Any
 
+from dombot.domain_utils import canonicalize_domain
+
 
 @dataclass
 class OptimalPath:
@@ -46,6 +48,13 @@ _trace_log: list[dict] = []
 
 _backend_name: str | None = None
 _real_db_module: Any | None = None
+
+
+def _canon_domain(domain: str) -> str:
+    normalized = canonicalize_domain(domain)
+    if normalized:
+        return normalized
+    return (domain or "").strip().lower()
 
 
 def _resolve_backend() -> tuple[str, Any | None]:
@@ -92,14 +101,15 @@ def seed_task_node(
     optimal_actions: list[str],
 ) -> OptimalPath:
     """Seed the in-memory store with a task node. For testing / demo use."""
+    canonical_domain = _canon_domain(domain)
     node = OptimalPath(
         task=task,
-        domain=domain,
+        domain=canonical_domain,
         confidence=confidence,
         run_count=run_count,
         optimal_actions=optimal_actions,
     )
-    _task_nodes[(task, domain)] = node
+    _task_nodes[(task, canonical_domain)] = node
     return node
 
 
@@ -116,14 +126,15 @@ def clear_store() -> None:
 
 def query_context(task: str, domain: str) -> OptimalPath | None:
     """Return optimal path for a similar task, or None if no prior data."""
+    canonical_domain = _canon_domain(domain)
     backend, real_db = _resolve_backend()
     if backend == "mongo":
-        result = real_db.query_context(task, domain)
+        result = real_db.query_context(task, canonical_domain)
         if result is None:
             return None
         return OptimalPath(
             task=result.task,
-            domain=result.domain,
+            domain=_canon_domain(result.domain),
             confidence=result.confidence,
             run_count=result.run_count,
             optimal_actions=list(result.optimal_actions),
@@ -131,12 +142,12 @@ def query_context(task: str, domain: str) -> OptimalPath | None:
 
     # Mock backend behavior below.
     # Exact match first
-    if (task, domain) in _task_nodes:
-        return _task_nodes[(task, domain)]
+    if (task, canonical_domain) in _task_nodes:
+        return _task_nodes[(task, canonical_domain)]
 
     # Simple substring fallback to simulate vector similarity
     for (stored_task, stored_domain), node in _task_nodes.items():
-        if stored_domain == domain and (
+        if stored_domain == canonical_domain and (
             stored_task.lower() in task.lower() or task.lower() in stored_task.lower()
         ):
             return node
@@ -146,11 +157,12 @@ def query_context(task: str, domain: str) -> OptimalPath | None:
 
 def store_step(task: str, domain: str, step: dict) -> None:
     """Store a single step result."""
+    canonical_domain = _canon_domain(domain)
     backend, real_db = _resolve_backend()
     if backend == "mongo":
         real_db.store_step(
             task=task,
-            domain=domain,
+            domain=canonical_domain,
             step=real_db.StepData(
                 action=step.get("action", ""),
                 target=step.get("target", ""),
@@ -161,17 +173,18 @@ def store_step(task: str, domain: str, step: dict) -> None:
         return
 
     # Mock backend behavior below.
-    entry = {"task": task, "domain": domain, **step}
+    entry = {"task": task, "domain": canonical_domain, **step}
     _step_log.append(entry)
 
 
 def store_trace(task: str, domain: str, trace: list[dict], success: bool) -> None:
     """Store the full trace after a run completes."""
+    canonical_domain = _canon_domain(domain)
     backend, real_db = _resolve_backend()
     if backend == "mongo":
         real_db.store_trace(
             task=task,
-            domain=domain,
+            domain=canonical_domain,
             trace=[
                 real_db.StepData(
                     action=s.get("action", ""),
@@ -186,7 +199,7 @@ def store_trace(task: str, domain: str, trace: list[dict], success: bool) -> Non
         return
 
     # Mock backend behavior below.
-    entry = {"task": task, "domain": domain, "steps": trace, "success": success}
+    entry = {"task": task, "domain": canonical_domain, "steps": trace, "success": success}
     _trace_log.append(entry)
 
 

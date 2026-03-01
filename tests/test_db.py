@@ -164,12 +164,13 @@ class TestStoreTrace:
         mock_collection.find_one.return_value = {
             "task": "t", "domain": "d",
             "run_count": 1, "_success_count": 1,
+            "confidence": 0.99,
             "_step_counts": {"click:btn": {"attempts": 1, "successes": 1}},
         }
         trace = [StepData("click", "btn", success=True)]
         store_trace("t", "d", trace, success=True)
 
-        # Two update_one calls: upsert + inc, then recompute
+        # update_one calls: upsert, inc, recompute, history push
         assert mock_collection.update_one.call_count >= 2
         inc_call = mock_collection.update_one.call_args_list[1]
         inc_ops = inc_call[0][1]["$inc"]
@@ -181,6 +182,7 @@ class TestStoreTrace:
         mock_collection.find_one.return_value = {
             "task": "t", "domain": "d",
             "run_count": 1, "_success_count": 0,
+            "confidence": 0.0,
             "_step_counts": {},
         }
         trace = [StepData("click", "btn", success=False)]
@@ -194,6 +196,7 @@ class TestStoreTrace:
         mock_collection.find_one.return_value = {
             "task": "t", "domain": "d",
             "run_count": 1, "_success_count": 1,
+            "confidence": 0.99,
             "_step_counts": {},
         }
         store_trace("t", "d", [StepData("click", "btn")], success=True)
@@ -203,11 +206,12 @@ class TestStoreTrace:
         mock_collection.find_one.return_value = {
             "task": "t", "domain": "d",
             "run_count": 1, "_success_count": 1,
+            "confidence": 0.99,
             "_step_counts": {},
         }
         store_trace("t", "d", [StepData("click", "btn")], success=True)
-        # find_one is called by _recompute_optimal_path
-        mock_collection.find_one.assert_called_once_with({"task": "t", "domain": "d"})
+        # find_one is called by _recompute_optimal_path and then again for event data
+        assert mock_collection.find_one.call_count == 2
 
 
 # ---------------------------------------------------------------------------

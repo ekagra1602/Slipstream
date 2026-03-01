@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 import re
-from typing import Any
+from typing import Any, Callable
 
 from pymongo import MongoClient
 
@@ -15,6 +16,25 @@ from db.config import (
 from db.embeddings import embed_task
 
 _client: MongoClient | None = None
+
+# ---------------------------------------------------------------------------
+# Event callback system
+# ---------------------------------------------------------------------------
+
+_event_callbacks: list[Callable] = []
+
+
+def register_callback(fn: Callable) -> None:
+    """Register a callback to be notified of data changes."""
+    _event_callbacks.append(fn)
+
+
+def _fire_event(event: dict) -> None:
+    for fn in _event_callbacks:
+        try:
+            fn(event)
+        except Exception:
+            pass
 
 
 def _get_collection():
@@ -124,6 +144,8 @@ def store_step(task: str, domain: str, step: StepData) -> None:
     sig = _action_signature(step)
     key = _mongo_safe_key(sig)
 
+    now = datetime.now(timezone.utc)
+
     # Upsert the task node, increment attempt_count for this step signature.
     collection.update_one(
         {"task": task, "domain": domain},
@@ -135,17 +157,28 @@ def store_step(task: str, domain: str, step: StepData) -> None:
                 "run_count": 0,
                 "confidence": 0.0,
                 "optimal_actions": [],
+                "created_at": now,
+            },
+            "$set": {
+                "updated_at": now,
+                f"_step_counts.{key}.signature": sig,
             },
             "$inc": {
                 f"_step_counts.{key}.attempts": 1,
                 f"_step_counts.{key}.successes": 1 if step.success else 0,
             },
-            "$set": {
-                f"_step_counts.{key}.signature": sig,
-            },
         },
         upsert=True,
     )
+
+    _fire_event({
+        "type": "step_recorded",
+        "task": task,
+        "domain": domain,
+        "action": step.action,
+        "target": step.target,
+        "success": step.success,
+    })
 
 
 def store_trace(task: str, domain: str, trace: list[StepData], success: bool) -> None:
@@ -155,6 +188,7 @@ def store_trace(task: str, domain: str, trace: list[StepData], success: bool) ->
         raise ValueError("trace must be a non-empty list")
     collection = _get_collection()
     embedding = embed_task(task)
+    now = datetime.now(timezone.utc)
 
     # Ensure the document exists.
     collection.update_one(
@@ -169,7 +203,9 @@ def store_trace(task: str, domain: str, trace: list[StepData], success: bool) ->
                 "optimal_actions": [],
                 "_step_counts": {},
                 "_success_count": 0,
+                "created_at": now,
             },
+            "$set": {"updated_at": now},
         },
         upsert=True,
     )
@@ -193,6 +229,34 @@ def store_trace(task: str, domain: str, trace: list[StepData], success: bool) ->
 
     # Recompute optimal path and confidence from accumulated counts.
     _recompute_optimal_path(collection, task, domain)
+
+    # Fetch updated doc for event data.
+    updated = collection.find_one(
+        {"task": task, "domain": domain},
+        {"confidence": 1, "run_count": 1, "_id": 0},
+    )
+
+    # Append history snapshot.
+    collection.update_one(
+        {"task": task, "domain": domain},
+        {
+            "$push": {
+                "_history": {
+                    "timestamp": now,
+                    "confidence": updated["confidence"] if updated else 0.0,
+                    "run_count": updated["run_count"] if updated else 0,
+                }
+            }
+        },
+    )
+
+    _fire_event({
+        "type": "node_updated" if updated and updated.get("run_count", 0) > 1 else "node_added",
+        "task": task,
+        "domain": domain,
+        "confidence": updated["confidence"] if updated else 0.0,
+        "run_count": updated["run_count"] if updated else 0,
+    })
 
 
 # ---------------------------------------------------------------------------

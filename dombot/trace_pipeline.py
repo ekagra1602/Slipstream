@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from lmnr import Laminar, LaminarClient
 
 from dombot.config import LAMINAR_API_KEY
+from dombot.domain_utils import canonicalize_domain
 
 logger = logging.getLogger("dombot.trace_pipeline")
 
@@ -343,11 +344,12 @@ async def process_trace(
 
     # --- run-level success gate ---
     success, partial = determine_run_success(trace_status, steps)
+    canonical_domain = canonicalize_domain(domain) or domain
 
     trace = NormalizedTrace(
         trace_id=trace_id or "unknown",
         task=task,
-        domain=domain,
+        domain=canonical_domain,
         success=success,
         partial=partial,
         steps=steps,
