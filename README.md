@@ -2,7 +2,7 @@
 
 **A shared learning layer for browser automation agents.**
 
-DomBot makes browser-use agents faster and more reliable by learning optimal action paths from every run. The first user fumbles through 72 steps. The 1000th user gets a pre-loaded 12-step path straight to the goal.
+Slipstream makes browser-use agents faster and more reliable by learning optimal action paths from every run. The first user fumbles through 72 steps. The 1000th user gets a pre-loaded 12-step path straight to the goal.
 
 **Analogy:** Waze for web agents — every run makes the map better for everyone.
 
@@ -10,16 +10,16 @@ DomBot makes browser-use agents faster and more reliable by learning optimal act
 
 ## How It Works
 
-DomBot registers as a tool inside browser-use. Before the LLM decides what to do, the agent calls DomBot to check if anyone has successfully completed a similar task before. If yes, the optimal path gets injected into the LLM's context. After each step, the agent reports what happened back to DomBot.
+Slipstream registers as a tool inside browser-use. Before the LLM decides what to do, the agent calls Slipstream to check if anyone has successfully completed a similar task before. If yes, the optimal path gets injected into the LLM's context. After each step, the agent reports what happened back to Slipstream.
 
 ```
 browser-use prepares DOM / screenshot / accessibility tree
     |
     v
-Agent calls dombot_query("buy macbook on walmart", "walmart.com")
+Agent calls slipstream_query("buy macbook on walmart", "walmart.com")
     |
     v
-DomBot queries MongoDB (vector search on task embedding)
+Slipstream queries MongoDB (vector search on task embedding)
     |-- hit  --> returns optimal actions from past successful runs
     |-- miss --> returns nothing (agent proceeds normally)
     |
@@ -30,10 +30,10 @@ LLM decides next action (now informed by past runs)
 browser-use executes action
     |
     v
-Agent calls dombot_report(action, target, success)
+Agent calls slipstream_report(action, target, success)
     |
     v
-DomBot stores step data in MongoDB
+Slipstream stores step data in MongoDB
     |
     v
 Repeat --> traces compound --> paths converge
@@ -52,14 +52,14 @@ Run 501:   new user gets the 12-step path pre-loaded. Done.
 
 ## Integration
 
-DomBot uses browser-use's `@controller.action` API — no monkey-patching, no subclassing:
+Slipstream uses browser-use's `@controller.action` API — no monkey-patching, no subclassing:
 
 ```python
 from browser_use import Agent, Browser, Controller
-from dombot import register_dombot_tools
+from slipstream import register_slipstream_tools
 
 controller = Controller()
-register_dombot_tools(controller)
+register_slipstream_tools(controller)
 
 agent = Agent(
     task="buy a macbook on walmart",
@@ -103,18 +103,18 @@ pre-commit install
 
 Default blocking pytest scope excludes opt-in suites:
 - `tests/test_db_live.py` (`live_db` marker)
-- `tests/test_dombot.py` (`ui_dependent` marker)
+- `tests/test_slipstream.py` (`ui_dependent` marker)
 
 Run optional suites explicitly:
 
 ```bash
 DOMBOT_RUN_LIVE_DB_TESTS=1 python -m pytest tests/test_db_live.py -q -m live_db
-DOMBOT_RUN_UI_TESTS=1 python -m pytest tests/test_dombot.py -q -m ui_dependent
+DOMBOT_RUN_UI_TESTS=1 python -m pytest tests/test_slipstream.py -q -m ui_dependent
 ```
 
 ## Caching and Invalidation Strategy
 
-DomBot uses a structural cache key:
+Slipstream uses a structural cache key:
 
 `(domain, route_pattern, structural_hash(page))`
 
@@ -137,9 +137,9 @@ This improves cache reuse while structural hash still separates genuinely differ
 
 ## Agent Readiness Scoring (Harness Concept)
 
-DomBot separates two concerns:
+Slipstream separates two concerns:
 
-- **Map Generator (DomBot):** produces interaction artifacts
+- **Map Generator (Slipstream):** produces interaction artifacts
 - **Harness (Evaluator):** scores readiness and reports regressions across deploys
 
 MVP readiness dimensions:
@@ -151,15 +151,15 @@ MVP readiness dimensions:
 
 ## Product Strategy
 
-DomBot can evolve as two complementary products:
+Slipstream can evolve as two complementary products:
 
-1. **Consumer product ("DomBot Agent")**
+1. **Consumer product ("Slipstream Agent")**
    - Installed in agent stacks
    - Local cache by default, optional shared cache
    - Makes existing agents faster and more reliable
 
-2. **Business product ("DomBot Site")**
-   - Deploy-time map publication (`/.well-known/dombot/map`)
+2. **Business product ("Slipstream Site")**
+   - Deploy-time map publication (`/.well-known/slipstream/map`)
    - Agent-traffic analytics and quality tooling
    - Helps sites become "agent-ready"
 
@@ -174,7 +174,7 @@ Longer term, a shared cache unlocks network effects:
 
 ## Status
 
-This repository currently captures the DomBot concept and architecture direction.
+This repository currently captures the Slipstream concept and architecture direction.
 
 Near-term MVP target:
 
@@ -185,4 +185,4 @@ Near-term MVP target:
 
 ## One-Line Pitch
 
-DomBot turns every deploy into a versioned agent interface and a regression signal for agent reliability.
+Slipstream turns every deploy into a versioned agent interface and a regression signal for agent reliability.
