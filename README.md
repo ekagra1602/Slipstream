@@ -69,6 +69,22 @@ agent = Agent(
 )
 ```
 
+## Mongo Write Smoke Test
+
+Quick write/read check without `pymongo` (uses `mongosh` + `.env`):
+
+```bash
+source .venv/bin/activate
+python scripts/check_mongo_write.py
+```
+
+If you want the direct `pymongo` check, make sure these imports are present:
+
+```python
+import os
+from pymongo import MongoClient
+```
+
 ## Caching and Invalidation Strategy
 
 DomBot uses a structural cache key:

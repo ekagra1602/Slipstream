@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import re
 from typing import Any
 
 from pymongo import MongoClient
@@ -121,6 +122,7 @@ def store_step(task: str, domain: str, step: StepData) -> None:
     _validate_step(step)
     collection = _get_collection()
     sig = _action_signature(step)
+    key = _mongo_safe_key(sig)
 
     # Upsert the task node, increment attempt_count for this step signature.
     collection.update_one(
@@ -135,8 +137,11 @@ def store_step(task: str, domain: str, step: StepData) -> None:
                 "optimal_actions": [],
             },
             "$inc": {
-                f"_step_counts.{sig}.attempts": 1,
-                f"_step_counts.{sig}.successes": 1 if step.success else 0,
+                f"_step_counts.{key}.attempts": 1,
+                f"_step_counts.{key}.successes": 1 if step.success else 0,
+            },
+            "$set": {
+                f"_step_counts.{key}.signature": sig,
             },
         },
         upsert=True,
@@ -171,17 +176,20 @@ def store_trace(task: str, domain: str, trace: list[StepData], success: bool) ->
 
     # Increment run counters.
     inc_ops: dict[str, int] = {"run_count": 1}
+    set_ops: dict[str, str] = {}
     if success:
         inc_ops["_success_count"] = 1
         for step in trace:
             sig = _action_signature(step)
-            inc_ops[f"_step_counts.{sig}.attempts"] = 1
-            inc_ops[f"_step_counts.{sig}.successes"] = 1 if step.success else 0
+            key = _mongo_safe_key(sig)
+            inc_ops[f"_step_counts.{key}.attempts"] = 1
+            inc_ops[f"_step_counts.{key}.successes"] = 1 if step.success else 0
+            set_ops[f"_step_counts.{key}.signature"] = sig
 
-    collection.update_one(
-        {"task": task, "domain": domain},
-        {"$inc": inc_ops},
-    )
+    update_doc: dict[str, Any] = {"$inc": inc_ops}
+    if set_ops:
+        update_doc["$set"] = set_ops
+    collection.update_one({"task": task, "domain": domain}, update_doc)
 
     # Recompute optimal path and confidence from accumulated counts.
     _recompute_optimal_path(collection, task, domain)
@@ -195,6 +203,20 @@ def _action_signature(step: StepData) -> str:
     if step.value:
         return f"{step.action}:{step.target}:{step.value}"
     return f"{step.action}:{step.target}"
+
+
+def _mongo_safe_key(signature: str) -> str:
+    """Convert a signature into a Mongo-safe field key for dotted update paths."""
+    # Dots and leading-dollar segments are invalid in path keys.
+    safe = signature.replace(".", "\uFF0E").replace("$", "\uFF04")
+    # Collapse accidental empty segments if input has repeated separators.
+    safe = re.sub(r"\uFF0E{2,}", "\uFF0E", safe)
+    return safe
+
+
+def _mongo_unsafe_key(key: str) -> str:
+    """Best-effort reverse transform for legacy docs without stored signature."""
+    return key.replace("\uFF0E", ".").replace("\uFF04", "$")
 
 
 def _recompute_optimal_path(collection, task: str, domain: str) -> None:
@@ -213,11 +235,12 @@ def _recompute_optimal_path(collection, task: str, domain: str) -> None:
     # Build step_traces sorted by success rate descending.
     step_traces = []
     for sig, counts in step_counts.items():
+        action_sig = counts.get("signature") or _mongo_unsafe_key(sig)
         attempts = counts.get("attempts", 0)
         successes = counts.get("successes", 0)
         rate = successes / attempts if attempts > 0 else 0.0
         step_traces.append({
-            "action_signature": sig,
+            "action_signature": action_sig,
             "attempt_count": attempts,
             "success_rate": round(rate, 3),
         })

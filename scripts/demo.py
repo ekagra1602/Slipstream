@@ -39,7 +39,7 @@ logger = logging.getLogger("demo")
 
 from browser_use import Agent, Browser
 
-from dombot.db import get_step_log, get_trace_log, seed_task_node
+from dombot.db import get_backend_name, get_step_log, get_trace_log, seed_task_node
 from dombot.prompts import DOMBOT_SYSTEM_PROMPT
 from dombot.tools import tools
 from dombot.trace_pipeline import initialize_laminar, process_trace
@@ -68,21 +68,25 @@ async def main():
     # ── Initialize Laminar (safe — no-ops if key is missing) ────────────────
     initialize_laminar()
 
+    backend = get_backend_name()
+    logger.info("DomBot DB backend: %s", backend)
+
     # ── Optional: seed data so dombot_query returns something on first run ──
-    # Comment this out to test the cold-start path instead.
-    seed_task_node(
-        task="search for 'DomBot browser automation' on google",
-        domain="google.com",
-        confidence=0.75,
-        run_count=8,
-        optimal_actions=[
-            "Navigate to google.com",
-            "Type 'DomBot browser automation' into search input",
-            "Press Enter or click Google Search",
-            "Read the first result title",
-        ],
-    )
-    logger.info("Seeded demo data into mock DB")
+    # Only seed in mock mode. Mongo mode uses real DB state.
+    if backend == "mock":
+        seed_task_node(
+            task="search for 'DomBot browser automation' on google",
+            domain="google.com",
+            confidence=0.75,
+            run_count=8,
+            optimal_actions=[
+                "Navigate to google.com",
+                "Type 'DomBot browser automation' into search input",
+                "Press Enter or click Google Search",
+                "Read the first result title",
+            ],
+        )
+        logger.info("Seeded demo data into mock DB")
 
     # ── Build the agent with Laminar-wired on_done callback ─────────────────
     # trace_id capture: on_done fires inside run_agent's @observe() span,
@@ -161,17 +165,35 @@ async def main():
     print(f"Steps: {len(result.history)}")
     print()
 
-    step_log = get_step_log()
-    trace_log = get_trace_log()
+    if backend == "mongo":
+        try:
+            from pymongo import MongoClient
+            from db.config import COLLECTION_TASK_NODES, DB_NAME, MONGODB_URI
 
-    print(f"DomBot steps recorded (via dombot_report): {len(step_log)}")
-    for i, s in enumerate(step_log, 1):
-        print(f"  {i}. [{s['action']}] {s['target']} — {'OK' if s['success'] else 'FAIL'}")
+            col = MongoClient(MONGODB_URI)[DB_NAME][COLLECTION_TASK_NODES]
+            doc = col.find_one({"task": TASK, "domain": DOMAIN}, sort=[("_id", -1)])
+            if doc:
+                step_counts = doc.get("_step_counts", {})
+                print(f"DomBot steps tracked (Mongo signatures): {len(step_counts)}")
+                print("DomBot traces stored (Mongo run_count):", doc.get("run_count", 0))
+                print("DomBot confidence:", doc.get("confidence", 0.0))
+                print("DomBot optimal actions:", len(doc.get("optimal_actions", [])))
+            else:
+                print("DomBot Mongo summary: no matching task node found")
+        except Exception as exc:
+            print(f"DomBot Mongo summary unavailable: {exc}")
+    else:
+        step_log = get_step_log()
+        trace_log = get_trace_log()
 
-    print(f"\nDomBot traces stored (via pipeline): {len(trace_log)}")
-    for t in trace_log:
-        label = "SUCCESS" if t["success"] else "FAILED"
-        print(f"  - {label} | {len(t['steps'])} steps")
+        print(f"DomBot steps recorded (via dombot_report): {len(step_log)}")
+        for i, s in enumerate(step_log, 1):
+            print(f"  {i}. [{s['action']}] {s['target']} — {'OK' if s['success'] else 'FAIL'}")
+
+        print(f"\nDomBot traces stored (via pipeline): {len(trace_log)}")
+        for t in trace_log:
+            label = "SUCCESS" if t["success"] else "FAILED"
+            print(f"  - {label} | {len(t['steps'])} steps")
 
     if result.final_result():
         print(f"\nAgent's answer: {result.final_result()}")
