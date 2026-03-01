@@ -1,4 +1,4 @@
-# DomBot
+# Slipstream
 
 **A shared learning layer for browser automation agents.**
 
