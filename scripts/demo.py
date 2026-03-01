@@ -10,10 +10,12 @@ Usage:
     python scripts/demo.py
 """
 
+import argparse
 import asyncio
 import logging
 import os
 import sys
+from urllib.parse import urlparse
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -41,8 +43,33 @@ logging.getLogger("openai").setLevel(logging.WARNING)
 
 logger = logging.getLogger("demo")
 
-TASK = "Go to google.com and search for 'DomBot browser automation' and tell me the first result title"
-DOMAIN = "google.com"
+# ── Imports ─────────────────────────────────────────────────────────────────
+
+from browser_use import Agent, Browser
+
+from dombot.db import get_backend_name, get_step_log, get_trace_log, seed_task_node
+from dombot.prompts import DOMBOT_SYSTEM_PROMPT
+from dombot.tools import tools
+from dombot.trace_pipeline import initialize_laminar, process_trace
+
+DEFAULT_TASK = "Go to google.com and search for 'DomBot browser automation' and tell me the first result title"
+DEFAULT_DOMAIN = "google.com"
+
+
+def _extract_domain_from_task(task: str) -> str:
+    text = (task or "").lower()
+    for token in text.replace("\n", " ").split():
+        cleaned = token.strip(" ,.;:()[]{}'\"")
+        if cleaned.startswith("http://") or cleaned.startswith("https://"):
+            try:
+                host = urlparse(cleaned).netloc
+                if host:
+                    return host.removeprefix("www.")
+            except Exception:
+                pass
+        if cleaned.endswith(".com") or cleaned.endswith(".org") or cleaned.endswith(".net"):
+            return cleaned.removeprefix("www.")
+    return DEFAULT_DOMAIN
 
 
 async def on_step(browser_state, model_output, step_number):
@@ -53,6 +80,15 @@ async def on_step(browser_state, model_output, step_number):
 
 
 async def main():
+    parser = argparse.ArgumentParser(description="Run a live DomBot demo task.")
+    parser.add_argument("--task", default=DEFAULT_TASK, help="Natural language task for the agent.")
+    parser.add_argument("--domain", default="", help="Domain key override (defaults to domain inferred from task).")
+    parser.add_argument("--model", default="bu-max", help="Browser-use model, e.g. bu-max or bu-1-0.")
+    args = parser.parse_args()
+
+    task = args.task
+    domain = args.domain or _extract_domain_from_task(task)
+
     # ── Pre-flight checks ───────────────────────────────────────────────────
     bu_key = os.getenv("BROWSER_USE_API_KEY")
 
@@ -100,23 +136,41 @@ async def main():
                 from lmnr import Laminar as _LmnrInner
                 trace_id_holder["id"] = _LmnrInner.get_trace_id()
                 tid = str(trace_id_holder["id"]) if trace_id_holder.get("id") else None
-                await process_trace(history, tid, TASK, DOMAIN)
+                await process_trace(history, tid, task, domain)
 
             browser = Browser(use_cloud=True)
-            agent = Agent(
-                task=TASK,
-                model="bu-max",
-                browser=browser,
-                tools=tools,
-                extend_system_message=DOMBOT_SYSTEM_PROMPT,
-                register_new_step_callback=on_step,
-                register_done_callback=on_done,
-            )
+            agent_kwargs = {
+                "task": task,
+                "model": args.model,
+                "browser": browser,
+                "tools": tools,
+                "extend_system_message": DOMBOT_SYSTEM_PROMPT,
+                "register_new_step_callback": on_step,
+                "register_done_callback": on_done,
+            }
+            for env_key, arg_name, cast in [
+                ("DOMBOT_MAX_STEPS", "max_steps", int),
+                ("DOMBOT_MAX_FAILURES", "max_failures", int),
+            ]:
+                raw = os.getenv(env_key)
+                if raw:
+                    try:
+                        agent_kwargs[arg_name] = cast(raw)
+                    except Exception:
+                        pass
+            try:
+                agent = Agent(**agent_kwargs)
+            except TypeError:
+                fallback_kwargs = {k: v for k, v in agent_kwargs.items()
+                                   if k not in {"max_steps", "max_failures"}}
+                agent = Agent(**fallback_kwargs)
 
             print()
             print("=" * 60)
-            print(f"Task: {TASK}")
-            print("DomBot tools: dombot_query, dombot_report")
+            print(f"Task: {task}")
+            print(f"Domain: {domain}")
+            print(f"Model: {args.model}")
+            print(f"DomBot tools: dombot_query, dombot_report")
             print(f"Laminar tracing: {'ENABLED' if trace_id_holder is not None else 'DISABLED'}")
             print("=" * 60)
             print()
@@ -132,24 +186,42 @@ async def main():
         logger.warning("lmnr package not installed — running without Laminar tracing")
 
         async def on_done_fallback(history):
-            await process_trace(history, None, TASK, DOMAIN)
+            await process_trace(history, None, task, domain)
 
         browser = Browser(use_cloud=True)
-        agent = Agent(
-            task=TASK,
-            model="bu-max",
-            browser=browser,
-            tools=tools,
-            extend_system_message=DOMBOT_SYSTEM_PROMPT,
-            register_new_step_callback=on_step,
-            register_done_callback=on_done_fallback,
-        )
+        agent_kwargs = {
+            "task": task,
+            "model": args.model,
+            "browser": browser,
+            "tools": tools,
+            "extend_system_message": DOMBOT_SYSTEM_PROMPT,
+            "register_new_step_callback": on_step,
+            "register_done_callback": on_done_fallback,
+        }
+        for env_key, arg_name, cast in [
+            ("DOMBOT_MAX_STEPS", "max_steps", int),
+            ("DOMBOT_MAX_FAILURES", "max_failures", int),
+        ]:
+            raw = os.getenv(env_key)
+            if raw:
+                try:
+                    agent_kwargs[arg_name] = cast(raw)
+                except Exception:
+                    pass
+        try:
+            agent = Agent(**agent_kwargs)
+        except TypeError:
+            fallback_kwargs = {k: v for k, v in agent_kwargs.items()
+                               if k not in {"max_steps", "max_failures"}}
+            agent = Agent(**fallback_kwargs)
 
         print()
         print("=" * 60)
-        print(f"Task: {TASK}")
-        print("DomBot tools: dombot_query, dombot_report")
-        print("Laminar tracing: DISABLED (lmnr not installed)")
+        print(f"Task: {task}")
+        print(f"Domain: {domain}")
+        print(f"Model: {args.model}")
+        print(f"DomBot tools: dombot_query, dombot_report")
+        print(f"Laminar tracing: DISABLED (lmnr not installed)")
         print("=" * 60)
         print()
 
@@ -170,7 +242,7 @@ async def main():
             from db.config import COLLECTION_TASK_NODES, DB_NAME, MONGODB_URI
 
             col = MongoClient(MONGODB_URI)[DB_NAME][COLLECTION_TASK_NODES]
-            doc = col.find_one({"task": TASK, "domain": DOMAIN}, sort=[("_id", -1)])
+            doc = col.find_one({"task": task, "domain": domain}, sort=[("_id", -1)])
             if doc:
                 step_counts = doc.get("_step_counts", {})
                 print(f"DomBot steps tracked (Mongo signatures): {len(step_counts)}")

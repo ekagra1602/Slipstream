@@ -99,6 +99,9 @@ def infer_domain_from_task(task: str, fallback: str = "") -> str:
     return fallback.lower() if fallback else "unknown.local"
 
 
+def normalize_task_key(task: str) -> str:
+    return " ".join((task or "").strip().lower().split())
+
 def default_output_path() -> Path:
     ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     out_dir = Path("benchmarks") / "benchmark_v2" / ts
@@ -212,16 +215,19 @@ def load_mongo_collection():
     return client[DB_NAME][COLLECTION_TASK_NODES]
 
 
-def fetch_task_node_metrics(collection, task: str, domain: str) -> tuple[int | None, float | None, int | None]:
+def fetch_task_node_metrics(
+    collection, task: str, domain: str
+) -> tuple[int | None, float | None, int | None, dict]:
     if collection is None:
-        return None, None, None
+        return None, None, None, {}
     doc = collection.find_one({"task": task, "domain": domain}, sort=[("_id", -1)])
     if not doc:
-        return None, None, None
+        return None, None, None, {}, {}
     return (
         doc.get("run_count"),
         doc.get("confidence"),
         len(doc.get("optimal_actions", [])),
+        doc.get("_last_run", {}) or {},
     )
 
 
@@ -239,12 +245,26 @@ async def run_once(run_idx: int, task: str, domain: str) -> dict:
         "agent_success": "",
         "judge_validated": "",
         "judge_failure_reason": "",
+        "path_update_allowed": "",
+        "contract_pass": "",
+        "schema_pass": "",
+        "format_pass": "",
+        "scope_pass": "",
+        "contract_failure_reason": "",
+        "agent_steps": 0,
+        "laminar_tool_steps": 0,
+        "pipeline_steps_total": 0,
+        "captcha_events": 0,
+        "interstitial_events": 0,
+        "modal_recovery_count": 0,
         "input_tokens": 0,
         "output_tokens": 0,
         "total_tokens": 0,
         "estimated_usd_cost": 0.0,
         "final_result": "",
         "error": "",
+        "policy_version": os.getenv("DOMBOT_POLICY_VERSION", "v3"),
+        "model": "bu-max",
     }
 
     t0 = time.time()
@@ -257,7 +277,12 @@ async def run_once(run_idx: int, task: str, domain: str) -> dict:
         async def on_done(history):
             trace_id_holder["id"] = str(_Lmnr.get_trace_id() or "")
             history_holder["history"] = history
-            await process_trace(history, trace_id_holder["id"] or None, task, domain)
+            try:
+                await process_trace(history, trace_id_holder["id"] or None, task, domain)
+            except Exception as exc:
+                print(f"[CRITICAL] process_trace failed: {exc}")
+                import traceback
+                traceback.print_exc()
 
         browser = Browser(use_cloud=True)
         agent = Agent(
@@ -320,21 +345,43 @@ async def main_async(args: argparse.Namespace) -> int:
     run_tasks = build_run_tasks(args.task, args.runs, args.mode)
 
     rows: list[dict] = []
+    soft_budget_usd = _to_float(os.getenv("DOMBOT_SOFT_BUDGET_USD", "0.0"))
+    hard_budget_usd = _to_float(os.getenv("DOMBOT_HARD_BUDGET_USD", "0.0"))
+    cumulative_cost = 0.0
     for i, task in enumerate(run_tasks, 1):
         domain = infer_domain_from_task(task, args.domain)
         print(f"\n--- Run {i}/{args.runs} ---")
         print(f"task: {task}")
         print(f"domain: {domain}")
         row = await run_once(i, task, domain)
-        run_count, confidence, optimal_actions_len = fetch_task_node_metrics(collection, task, domain)
+        run_count, confidence, optimal_actions_len, last_run = fetch_task_node_metrics(collection, normalize_task_key(task), domain)
         row["mongo_run_count"] = run_count if run_count is not None else ""
         row["mongo_confidence"] = confidence if confidence is not None else ""
         row["mongo_optimal_actions"] = optimal_actions_len if optimal_actions_len is not None else ""
+        row["path_update_allowed"] = last_run.get("path_update_allowed", "")
+        row["contract_pass"] = last_run.get("contract_pass", "")
+        row["schema_pass"] = last_run.get("schema_pass", "")
+        row["format_pass"] = last_run.get("format_pass", "")
+        row["scope_pass"] = last_run.get("scope_pass", "")
+        row["contract_failure_reason"] = (last_run.get("contract_failure_reason", "") or "")[:300]
+        row["agent_steps"] = last_run.get("agent_steps", 0)
+        row["laminar_tool_steps"] = last_run.get("laminar_tool_steps", 0)
+        row["pipeline_steps_total"] = last_run.get("pipeline_steps_total", 0)
+        row["captcha_events"] = last_run.get("captcha_events", 0)
+        row["interstitial_events"] = last_run.get("interstitial_events", 0)
+        row["modal_recovery_count"] = last_run.get("modal_recovery_count", 0)
         rows.append(row)
+        cumulative_cost += _to_float(row.get("estimated_usd_cost"))
         print(
             f"status={row['status']} steps={row['steps']} agent_success={row['agent_success']} "
             f"judge={row['judge_validated']} conf={row['mongo_confidence']}"
         )
+        if hard_budget_usd > 0 and cumulative_cost >= hard_budget_usd:
+            print(f"Stopping early: hit hard budget (${cumulative_cost:.4f} >= ${hard_budget_usd:.4f})")
+            break
+        if soft_budget_usd > 0 and cumulative_cost >= soft_budget_usd:
+            print(f"Stopping early: hit soft budget (${cumulative_cost:.4f} >= ${soft_budget_usd:.4f})")
+            break
 
     fieldnames = [
         "run_idx",
@@ -347,6 +394,18 @@ async def main_async(args: argparse.Namespace) -> int:
         "agent_success",
         "judge_validated",
         "judge_failure_reason",
+        "path_update_allowed",
+        "contract_pass",
+        "schema_pass",
+        "format_pass",
+        "scope_pass",
+        "contract_failure_reason",
+        "agent_steps",
+        "laminar_tool_steps",
+        "pipeline_steps_total",
+        "captcha_events",
+        "interstitial_events",
+        "modal_recovery_count",
         "input_tokens",
         "output_tokens",
         "total_tokens",
@@ -356,6 +415,8 @@ async def main_async(args: argparse.Namespace) -> int:
         "mongo_optimal_actions",
         "final_result",
         "error",
+        "policy_version",
+        "model",
     ]
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with out_path.open("w", newline="", encoding="utf-8") as f:

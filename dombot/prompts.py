@@ -1,3 +1,7 @@
+import os
+
+_MILESTONE_ENABLED = os.getenv("DOMBOT_MILESTONE_PROMPTS", "1") != "0"
+
 DOMBOT_SYSTEM_PROMPT = """
 ## DomBot Integration
 
@@ -118,10 +122,14 @@ def format_optimal_path(result) -> str:
         f'Similar task: "{result.task}"',
         "",
     ]
+    exec_conf = getattr(result, "execution_confidence", None)
+    contract_conf = getattr(result, "contract_confidence", None)
+    if exec_conf is not None and contract_conf is not None:
+        lines.insert(2, f"Execution/Contract confidence: {exec_conf:.0%} / {contract_conf:.0%}")
 
     milestones = _group_into_milestones(result.optimal_actions)
 
-    if len(milestones) >= 2:
+    if _MILESTONE_ENABLED and len(milestones) >= 2:
         # Milestone format with phase headers and retry budgets
         lines.append("Recommended workflow:")
         lines.append("")

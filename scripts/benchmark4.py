@@ -4,8 +4,10 @@
 Usage examples:
   source .venv/bin/activate
   export DOMBOT_DB_BACKEND=mongo
-  python scripts/benchmark1.py --runs 10 --mode same
-  python scripts/benchmark1.py --runs 15 --mode paraphrase
+  python scripts/benchmark4.py --runs 10 --mode same
+  python scripts/benchmark4.py --runs 15 --mode paraphrase
+  python scripts/benchmark4.py --runs 9 --mode dataset --dataset benchmarks/benchmark_v4/datasets/walmart_v4_tasks.json
+  python scripts/benchmark4.py --runs 10 --mode dataset --dataset benchmarks/benchmark_v4/datasets/walmart_v4_tasks.json --task-id wm_hard_combo_qty2_5fields
 """
 
 from __future__ import annotations
@@ -29,6 +31,7 @@ from dotenv import load_dotenv
 
 from browser_use import Agent, Browser
 from dombot.db import get_backend_name
+from dombot.milestones import MilestoneTracker
 from dombot.prompts import DOMBOT_SYSTEM_PROMPT
 from dombot.tools import tools
 from dombot.trace_pipeline import initialize_laminar, process_trace
@@ -43,11 +46,21 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--runs", type=int, default=10, help="Number of benchmark runs")
     parser.add_argument(
         "--mode",
-        choices=["same", "paraphrase"],
+        choices=["same", "paraphrase", "dataset"],
         default="same",
-        help="Use identical task text each run or rotate paraphrases",
+        help="Use identical task text, rotate paraphrases, or use dataset tasks",
     )
     parser.add_argument("--task", default=DEFAULT_TASK, help="Base task description")
+    parser.add_argument(
+        "--dataset",
+        default="",
+        help="Dataset JSON path with tasks array (required when --mode dataset)",
+    )
+    parser.add_argument(
+        "--task-id",
+        default="",
+        help="Optional dataset task id to run repeatedly (with --mode dataset)",
+    )
     parser.add_argument(
         "--domain",
         default=DEFAULT_DOMAIN,
@@ -56,7 +69,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output",
         default="",
-        help="CSV output path (default: benchmarks/benchmark1_<timestamp>.csv)",
+        help="CSV output path (default: benchmarks/benchmark_v4/<timestamp>/results.csv)",
     )
     return parser.parse_args()
 
@@ -71,14 +84,53 @@ def paraphrase_tasks(base_task: str) -> list[str]:
     ]
 
 
+def load_dataset_tasks(dataset_path: str, task_id: str = "") -> list[str]:
+    path = Path(dataset_path)
+    if not path.exists():
+        raise FileNotFoundError(f"Dataset file not found: {dataset_path}")
+    with path.open("r", encoding="utf-8") as f:
+        payload = json.load(f)
+    entries = payload.get("tasks", [])
+    if not isinstance(entries, list) or not entries:
+        raise ValueError("Dataset must include a non-empty 'tasks' list")
+
+    if task_id:
+        for entry in entries:
+            if str(entry.get("id", "")).strip() == task_id:
+                task_text = str(entry.get("task", "")).strip()
+                if not task_text:
+                    raise ValueError(f"Dataset task '{task_id}' has empty task text")
+                return [task_text]
+        raise ValueError(f"Task id not found in dataset: {task_id}")
+
+    out: list[str] = []
+    for entry in entries:
+        task_text = str(entry.get("task", "")).strip()
+        if task_text:
+            out.append(task_text)
+    if not out:
+        raise ValueError("No valid non-empty task strings found in dataset")
+    return out
+
+
 def build_run_tasks(base_task: str, runs: int, mode: str) -> list[str]:
     if mode == "same":
         return [base_task for _ in range(runs)]
+
+    if mode == "dataset":
+        raise ValueError("dataset mode requires build_run_tasks_dataset()")
 
     templates = paraphrase_tasks(base_task)
     out: list[str] = []
     for i in range(runs):
         out.append(templates[i % len(templates)])
+    return out
+
+
+def build_run_tasks_dataset(dataset_tasks: list[str], runs: int) -> list[str]:
+    out: list[str] = []
+    for i in range(runs):
+        out.append(dataset_tasks[i % len(dataset_tasks)])
     return out
 
 
@@ -102,9 +154,10 @@ def infer_domain_from_task(task: str, fallback: str = "") -> str:
 def normalize_task_key(task: str) -> str:
     return " ".join((task or "").strip().lower().split())
 
+
 def default_output_path() -> Path:
     ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    out_dir = Path("benchmarks") / "benchmark_v1" / ts
+    out_dir = Path("benchmarks") / "benchmark_v4" / ts
     out_dir.mkdir(parents=True, exist_ok=True)
     return out_dir / "results.csv"
 
@@ -222,7 +275,7 @@ def fetch_task_node_metrics(
         return None, None, None, {}
     doc = collection.find_one({"task": task, "domain": domain}, sort=[("_id", -1)])
     if not doc:
-        return None, None, None, {}, {}
+        return None, None, None, {}
     return (
         doc.get("run_count"),
         doc.get("confidence"),
@@ -257,6 +310,9 @@ async def run_once(run_idx: int, task: str, domain: str) -> dict:
         "captcha_events": 0,
         "interstitial_events": 0,
         "modal_recovery_count": 0,
+        "milestone_violations": 0,
+        "phase_revisits": 0,
+        "milestone_steps_observed": 0,
         "input_tokens": 0,
         "output_tokens": 0,
         "total_tokens": 0,
@@ -265,7 +321,6 @@ async def run_once(run_idx: int, task: str, domain: str) -> dict:
         "error": "",
         "policy_version": os.getenv("DOMBOT_POLICY_VERSION", "v3"),
         "model": "bu-max",
-        "milestone_prompts_enabled": os.getenv("DOMBOT_MILESTONE_PROMPTS", "1") != "0",
     }
 
     t0 = time.time()
@@ -274,21 +329,29 @@ async def run_once(run_idx: int, task: str, domain: str) -> dict:
     async def _wrapped() -> dict:
         trace_id_holder: dict = {}
         history_holder: dict = {}
-        trace_holder: dict = {}
+        milestone = MilestoneTracker(task)
 
         async def on_done(history):
             trace_id_holder["id"] = str(_Lmnr.get_trace_id() or "")
             history_holder["history"] = history
             try:
-                trace_holder["trace"] = await process_trace(
-                    history, trace_id_holder["id"] or None, task, domain
+                await process_trace(
+                    history,
+                    trace_id_holder["id"] or None,
+                    task,
+                    domain,
+                    external_metrics=milestone.snapshot(),
                 )
             except Exception as exc:
                 print(f"[CRITICAL] process_trace failed: {exc}")
                 import traceback
                 traceback.print_exc()
 
+        async def on_step(_browser_state, model_output, _step_number):
+            milestone.observe_step(model_output)
+
         browser = Browser(use_cloud=True)
+
         agent_kwargs = {
             "task": task,
             "model": "bu-max",
@@ -296,10 +359,14 @@ async def run_once(run_idx: int, task: str, domain: str) -> dict:
             "tools": tools,
             "extend_system_message": DOMBOT_SYSTEM_PROMPT,
             "register_done_callback": on_done,
+            "register_new_step_callback": on_step,
         }
+        # Runtime controls (feature-flagged via env) with safe fallback.
         for env_key, arg_name, cast in [
             ("DOMBOT_MAX_STEPS", "max_steps", int),
             ("DOMBOT_MAX_FAILURES", "max_failures", int),
+            ("DOMBOT_STEP_TIMEOUT", "step_timeout", int),
+            ("DOMBOT_MAX_ACTIONS_PER_STEP", "max_actions_per_step", int),
         ]:
             raw = os.getenv(env_key)
             if raw:
@@ -307,11 +374,12 @@ async def run_once(run_idx: int, task: str, domain: str) -> dict:
                     agent_kwargs[arg_name] = cast(raw)
                 except Exception:
                     pass
+
         try:
             agent = Agent(**agent_kwargs)
         except TypeError:
-            fallback_kwargs = {k: v for k, v in agent_kwargs.items()
-                               if k not in {"max_steps", "max_failures"}}
+            # Backward-compatible fallback if some runtime knobs are unsupported.
+            fallback_kwargs = {k: v for k, v in agent_kwargs.items() if k not in {"max_steps", "max_failures", "step_timeout", "max_actions_per_step"}}
             agent = Agent(**fallback_kwargs)
 
         try:
@@ -331,13 +399,10 @@ async def run_once(run_idx: int, task: str, domain: str) -> dict:
             row["output_tokens"] = output_tokens
             row["total_tokens"] = total_tokens
             row["estimated_usd_cost"] = _estimate_usd_cost(input_tokens, output_tokens)
-            nt = trace_holder.get("trace")
-            if nt is not None:
-                row["contract_pass"] = nt.contract_pass
-                row["schema_pass"] = nt.schema_pass
-                row["format_pass"] = nt.format_pass
-                row["scope_pass"] = nt.scope_pass
-                row["contract_failure_reason"] = str(nt.contract_failure_reason or "")[:300]
+            ms = milestone.snapshot()
+            row["milestone_violations"] = ms.get("milestone_violations", 0)
+            row["phase_revisits"] = ms.get("phase_revisits", 0)
+            row["milestone_steps_observed"] = ms.get("milestone_steps_observed", 0)
             return row
         finally:
             await browser.stop()
@@ -369,7 +434,14 @@ async def main_async(args: argparse.Namespace) -> int:
 
     out_path = Path(args.output) if args.output else default_output_path()
     out_dir = out_path.parent
-    run_tasks = build_run_tasks(args.task, args.runs, args.mode)
+    if args.mode == "dataset":
+        if not args.dataset:
+            print("ERROR: --dataset is required when --mode dataset")
+            return 1
+        dataset_tasks = load_dataset_tasks(args.dataset, args.task_id)
+        run_tasks = build_run_tasks_dataset(dataset_tasks, args.runs)
+    else:
+        run_tasks = build_run_tasks(args.task, args.runs, args.mode)
 
     rows: list[dict] = []
     soft_budget_usd = _to_float(os.getenv("DOMBOT_SOFT_BUDGET_USD", "0.0"))
@@ -381,7 +453,11 @@ async def main_async(args: argparse.Namespace) -> int:
         print(f"task: {task}")
         print(f"domain: {domain}")
         row = await run_once(i, task, domain)
-        run_count, confidence, optimal_actions_len, last_run = fetch_task_node_metrics(collection, normalize_task_key(task), domain)
+        run_count, confidence, optimal_actions_len, last_run = fetch_task_node_metrics(
+            collection,
+            normalize_task_key(task),
+            domain,
+        )
         row["mongo_run_count"] = run_count if run_count is not None else ""
         row["mongo_confidence"] = confidence if confidence is not None else ""
         row["mongo_optimal_actions"] = optimal_actions_len if optimal_actions_len is not None else ""
@@ -397,6 +473,9 @@ async def main_async(args: argparse.Namespace) -> int:
         row["captcha_events"] = last_run.get("captcha_events", 0)
         row["interstitial_events"] = last_run.get("interstitial_events", 0)
         row["modal_recovery_count"] = last_run.get("modal_recovery_count", 0)
+        row["milestone_violations"] = last_run.get("milestone_violations", row.get("milestone_violations", 0))
+        row["phase_revisits"] = last_run.get("phase_revisits", row.get("phase_revisits", 0))
+        row["milestone_steps_observed"] = last_run.get("milestone_steps_observed", row.get("milestone_steps_observed", 0))
         rows.append(row)
         cumulative_cost += _to_float(row.get("estimated_usd_cost"))
         print(
@@ -433,6 +512,9 @@ async def main_async(args: argparse.Namespace) -> int:
         "captcha_events",
         "interstitial_events",
         "modal_recovery_count",
+        "milestone_violations",
+        "phase_revisits",
+        "milestone_steps_observed",
         "input_tokens",
         "output_tokens",
         "total_tokens",
@@ -444,7 +526,6 @@ async def main_async(args: argparse.Namespace) -> int:
         "error",
         "policy_version",
         "model",
-        "milestone_prompts_enabled",
     ]
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with out_path.open("w", newline="", encoding="utf-8") as f:
@@ -502,10 +583,12 @@ async def main_async(args: argparse.Namespace) -> int:
     conf_delta = round(conf_end - conf_start, 3) if confidences else 0.0
 
     judge_fail_reasons = [str(r.get("judge_failure_reason") or "").strip() for r in rows if r.get("judge_validated") is False]
+    avg_milestone_violations = round(sum(_to_float(r.get("milestone_violations")) for r in rows) / max(total, 1), 2)
+    replay_rows = [r for r in rows if r.get("status") != "ok" or r.get("judge_validated") is False]
 
     summary_path = out_dir / "summary.md"
     with summary_path.open("w", encoding="utf-8") as f:
-        f.write("# Benchmark v1 Summary\n\n")
+        f.write("# Benchmark v4 Summary\n\n")
         f.write(f"- runs: {total}\n")
         f.write(f"- ok: {ok}\n")
         f.write(f"- judged_pass: {judged_pass}\n")
@@ -533,9 +616,14 @@ async def main_async(args: argparse.Namespace) -> int:
         f.write(f"- confidence_end: {conf_end}\n")
         f.write(f"- confidence_peak: {conf_peak}\n")
         f.write(f"- confidence_delta: {conf_delta}\n")
+        f.write(f"- avg_milestone_violations: {avg_milestone_violations}\n")
         f.write(f"- mode: {args.mode}\n")
+        if args.mode == "dataset":
+            f.write(f"- dataset: {args.dataset}\n")
+            f.write(f"- dataset_task_id: {args.task_id or '(all)'}\n")
         f.write(f"- domains: {domain_display}\n")
         f.write(f"- backend: {backend}\n")
+        f.write(f"- replay_pack_count: {len(replay_rows)}\n")
         if judge_fail_reasons:
             f.write("\n## Judge Fail Reasons\n")
             for i, reason in enumerate(judge_fail_reasons, 1):
@@ -544,11 +632,37 @@ async def main_async(args: argparse.Namespace) -> int:
         f.write(f"- CSV: `{out_path}`\n")
         f.write(f"- JSONL: `{jsonl_path}`\n")
 
+    replay_path = out_dir / "replay_pack.jsonl"
+    with replay_path.open("w", encoding="utf-8") as f:
+        for row in replay_rows:
+            f.write(json.dumps(row, ensure_ascii=False) + "\n")
+
+    # Canary rollback signal for automation.
+    # If enabled and regressions cross thresholds, return non-zero.
+    canary_enabled = os.getenv("DOMBOT_CANARY_MODE", "0").strip().lower() in {"1", "true", "yes"}
+    rollback = False
+    if canary_enabled:
+        min_pass_rate = _to_float(os.getenv("DOMBOT_CANARY_MIN_PASS_RATE_PCT", "90"))
+        max_p90_duration = _to_float(os.getenv("DOMBOT_CANARY_MAX_P90_DURATION_S", "0"))
+        max_schema_fail_rate = _to_float(os.getenv("DOMBOT_CANARY_MAX_SCHEMA_FAIL_RATE_PCT", "10"))
+        schema_fail = sum(1 for r in rows if r.get("schema_pass") is False)
+        schema_fail_rate = (schema_fail / max(total, 1)) * 100.0
+        if pass_rate < min_pass_rate:
+            rollback = True
+        if max_p90_duration > 0 and p90_duration > max_p90_duration:
+            rollback = True
+        if schema_fail_rate > max_schema_fail_rate:
+            rollback = True
+
     print("\n=== Benchmark Complete ===")
     print(f"runs: {total}, ok: {ok}, judged_pass: {judged_pass}")
     print(f"csv: {out_path}")
     print(f"jsonl: {jsonl_path}")
+    print(f"replay_pack: {replay_path}")
     print(f"summary: {summary_path}")
+    if rollback:
+        print("canary: rollback-triggered")
+        return 2
     return 0
 
 

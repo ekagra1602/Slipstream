@@ -135,7 +135,7 @@ async def test_seeded_query():
     check("contains run count", "500 successful runs" in content)
     check("contains task description", "buy a macbook on walmart" in content)
     check("contains first action", "Macbook" in content and "search input" in content)
-    check("contains all 4 actions", content.count(". ") >= 4, f"found {content.count('. ')} numbered items")
+    check("contains all 4 actions", content.count("→") >= 4, f"found {content.count('→')} action arrows")
     check(
         "no low-confidence warning (94% > 70%)",
         "Confidence is moderate" not in content,
@@ -469,7 +469,7 @@ async def test_full_lifecycle():
         )
     )
     check("run 2: optimal path returned", "Found optimal path" in q2.extracted_content)
-    check("run 2: shows 3 recommended actions", q2.extracted_content.count(". ") >= 3)
+    check("run 2: shows 3 recommended actions", q2.extracted_content.count("→") >= 3)
     check("run 2: confidence shown", "85%" in q2.extracted_content)
 
     # Agent follows the path, reports steps

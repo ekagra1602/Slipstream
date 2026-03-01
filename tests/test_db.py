@@ -26,7 +26,8 @@ class TestActionSignature:
 
     def test_with_value(self):
         step = StepData(action="type", target="search_input", value="macbook")
-        assert _action_signature(step) == "type:search_input:macbook"
+        assert _action_signature(step) == "type:search_input"
+        assert _action_signature(step, include_value=True) == "type:search_input:macbook"
 
     def test_empty_string_value_treated_as_no_value(self):
         step = StepData(action="click", target="link", value="")

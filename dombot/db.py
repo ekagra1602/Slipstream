@@ -32,6 +32,9 @@ class OptimalPath:
     run_count: int
     optimal_actions: list[str] = field(default_factory=list)
     successful_results: list[str] = field(default_factory=list)
+    last_run: dict[str, Any] = field(default_factory=dict)
+    execution_confidence: float = 0.0
+    contract_confidence: float = 0.0
 
 
 # ---------------------------------------------------------------------------
@@ -56,6 +59,11 @@ def _canon_domain(domain: str) -> str:
     if normalized:
         return normalized
     return (domain or "").strip().lower()
+
+
+def _normalize_task_text(task: str) -> str:
+    text = " ".join((task or "").strip().lower().split())
+    return text
 
 
 def _resolve_backend() -> tuple[str, Any | None]:
@@ -127,6 +135,7 @@ def clear_store() -> None:
 
 def query_context(task: str, domain: str) -> OptimalPath | None:
     """Return optimal path for a similar task, or None if no prior data."""
+    task = _normalize_task_text(task)
     canonical_domain = _canon_domain(domain)
     backend, real_db = _resolve_backend()
     if backend == "mongo":
@@ -140,6 +149,9 @@ def query_context(task: str, domain: str) -> OptimalPath | None:
             run_count=result.run_count,
             optimal_actions=list(result.optimal_actions),
             successful_results=list(getattr(result, "successful_results", []) or []),
+            last_run=dict(getattr(result, "last_run", {}) or {}),
+            execution_confidence=float(getattr(result, "execution_confidence", 0.0) or 0.0),
+            contract_confidence=float(getattr(result, "contract_confidence", 0.0) or 0.0),
         )
 
     # Mock backend behavior below.
@@ -159,6 +171,7 @@ def query_context(task: str, domain: str) -> OptimalPath | None:
 
 def store_step(task: str, domain: str, step: dict) -> None:
     """Store a single step result."""
+    task = _normalize_task_text(task)
     canonical_domain = _canon_domain(domain)
     backend, real_db = _resolve_backend()
     if backend == "mongo":
@@ -184,9 +197,11 @@ def store_trace(
     domain: str,
     trace: list[dict],
     success: bool,
+    path_update_allowed: bool = True,
     run_metrics: dict | None = None,
 ) -> None:
     """Store the full trace after a run completes."""
+    task = _normalize_task_text(task)
     canonical_domain = _canon_domain(domain)
     backend, real_db = _resolve_backend()
     if backend == "mongo":
@@ -203,6 +218,7 @@ def store_trace(
                 for s in trace
             ],
             success=success,
+            path_update_allowed=path_update_allowed,
             run_metrics=run_metrics,
         )
         return
@@ -213,6 +229,7 @@ def store_trace(
         "domain": canonical_domain,
         "steps": trace,
         "success": success,
+        "path_update_allowed": bool(path_update_allowed),
         "run_metrics": run_metrics or {},
     }
     _trace_log.append(entry)

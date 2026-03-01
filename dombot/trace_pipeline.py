@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -47,6 +48,14 @@ EFFICIENCY_SLACK: int = int(os.getenv("DOMBOT_EFFICIENCY_SLACK", "3"))
 EFFICIENCY_FILTER_ENABLED: bool = os.getenv(
     "DOMBOT_EFFICIENCY_FILTER", "1"
 ).strip().lower() not in {"0", "false", "no"}
+EFFICIENCY_BASE_SLACK: int = int(os.getenv("DOMBOT_EFFICIENCY_BASE_SLACK", str(EFFICIENCY_SLACK)))
+EFFICIENCY_PHASE_SLACK: int = int(os.getenv("DOMBOT_EFFICIENCY_PHASE_SLACK", "2"))
+EFFICIENCY_NOISE_SLACK: int = int(os.getenv("DOMBOT_EFFICIENCY_NOISE_SLACK", "1"))
+
+# Actions that are meta/tool-level and should never be stored as learned path steps.
+# dombot_query/dombot_report are DomBot tool calls, not browser actions.
+# done marks task completion — storing it pollutes optimal_actions with result text.
+_SKIP_ACTIONS = frozenset({"dombot_query", "dombot_report", "done"})
 
 _CAPTCHA_KEYWORDS = frozenset({
     "captcha", "recaptcha", "challenge", "verify you are human", "i am not a robot",
@@ -79,6 +88,19 @@ class NormalizedTrace:
     success: bool  # run-level gate
     partial: bool  # True if run ended mid-task without explicit completion
     steps: list[NormalizedStep] = field(default_factory=list)
+    path_update_allowed: bool = True
+    efficiency_reason: str = ""
+    contract_pass: bool = True
+    schema_pass: bool = True
+    format_pass: bool = True
+    scope_pass: bool = True
+    contract_failure_reason: str = ""
+    agent_steps: int = 0
+    laminar_tool_steps: int = 0
+    pipeline_steps_total: int = 0
+    captcha_events: int = 0
+    interstitial_events: int = 0
+    modal_recovery_count: int = 0
 
 
 # ---------------------------------------------------------------------------
@@ -325,6 +347,22 @@ def _count_effective_steps(steps: list[NormalizedStep]) -> int:
     return sum(1 for s in steps if s.action_type != "done")
 
 
+def _noise_counts(steps: list[NormalizedStep]) -> tuple[int, int, int]:
+    """Return (captcha_events, interstitial_events, modal_recovery_count)."""
+    captcha = 0
+    interstitial = 0
+    modal_recovery = 0
+    for s in steps:
+        combined = " ".join([s.action_type, s.target, s.value or "", s.raw_output]).lower()
+        if any(kw in combined for kw in _CAPTCHA_KEYWORDS):
+            captcha += 1
+        if any(kw in combined for kw in ("interstitial", "protection plan", "upsell", "confirm you're human")):
+            interstitial += 1
+        if s.action_type == "click" and any(kw in combined for kw in ("no thanks", "close dialog", "close")):
+            modal_recovery += 1
+    return captcha, interstitial, modal_recovery
+
+
 def _has_captcha_noise(steps: list[NormalizedStep]) -> bool:
     """Return True if any step shows CAPTCHA handling.
 
@@ -340,6 +378,19 @@ def _has_captcha_noise(steps: list[NormalizedStep]) -> bool:
     return False
 
 
+def _estimate_phase_count(task: str) -> int:
+    """Estimate number of task phases from prompt structure."""
+    text = task.lower()
+    count = 1
+    if "first," in text and "then" in text:
+        count += 1
+    count += len(re.findall(r"\bthen\b", text))
+    count += len(re.findall(r"\bafter that\b", text))
+    if any(kw in text for kw in ("add", "cart", "search for")) and text.count(" and ") >= 2:
+        count += 1
+    return max(1, min(count, 6))
+
+
 def _check_efficiency(
     steps: list[NormalizedStep],
     task: str,
@@ -353,16 +404,12 @@ def _check_efficiency(
 
     Rules:
     - Filter disabled via env var → always ok.
-    - CAPTCHA detected → always ok (external noise).
     - No prior optimal path (cold start) → always ok.
     - effective_steps <= budget → ok.
     - effective_steps > budget → not ok; run counted but path NOT updated.
     """
     if not EFFICIENCY_FILTER_ENABLED:
         return True, "filter disabled"
-
-    if _has_captcha_noise(steps):
-        return True, "CAPTCHA detected — noise exemption"
 
     from dombot.db import query_context
     prior = query_context(task, domain)
@@ -371,18 +418,72 @@ def _check_efficiency(
 
     optimal_len = len(prior.optimal_actions)
     effective = _count_effective_steps(steps)
-    budget = optimal_len + EFFICIENCY_SLACK
+    captcha_events, interstitial_events, modal_recovery_count = _noise_counts(steps)
+    phase_count = _estimate_phase_count(task)
+    phase_penalty = max(0, phase_count - 1) * EFFICIENCY_PHASE_SLACK
+    noise_penalty = (captcha_events + interstitial_events + modal_recovery_count) * EFFICIENCY_NOISE_SLACK
+    budget = optimal_len + EFFICIENCY_BASE_SLACK + phase_penalty + noise_penalty
 
     if effective <= budget:
         return True, (
             f"{effective} steps ≤ budget {budget} "
-            f"(optimal={optimal_len} + slack={EFFICIENCY_SLACK})"
+            f"(optimal={optimal_len} + base_slack={EFFICIENCY_BASE_SLACK} "
+            f"+ phase_penalty={phase_penalty} + noise_penalty={noise_penalty})"
         )
 
     return False, (
         f"{effective} steps > budget {budget} "
-        f"(optimal={optimal_len} + slack={EFFICIENCY_SLACK}) — path NOT updated"
+        f"(optimal={optimal_len} + base_slack={EFFICIENCY_BASE_SLACK} "
+        f"+ phase_penalty={phase_penalty} + noise_penalty={noise_penalty}) — path NOT updated"
     )
+
+
+def _evaluate_contract(task: str, final_result: str | None) -> tuple[bool, bool, bool, bool, str]:
+    """Return (contract_pass, schema_pass, format_pass, scope_pass, reason)."""
+    if not final_result:
+        return False, False, False, False, "missing final_result"
+
+    text = final_result.strip()
+    # Normalize escaped newlines from model output ("\\n") into real lines before
+    # enforcing "exactly N lines" contracts.
+    if "\\n" in text:
+        text = text.replace("\\n", "\n")
+    lower_task = task.lower()
+
+    schema_pass = True
+    format_pass = True
+    scope_pass = True
+    reasons: list[str] = []
+
+    m = re.search(r"exactly\s+(\d+)\s+lines?", lower_task)
+    if m:
+        expected = int(m.group(1))
+        got = len([ln for ln in text.splitlines() if ln.strip()])
+        if got != expected:
+            schema_pass = False
+            format_pass = False
+            reasons.append(f"expected {expected} lines, got {got}")
+
+    if "cart page only" in lower_task:
+        banned = (
+            "not displayed on cart page",
+            "from product page",
+            "from search results",
+            "not visible on this cart page",
+        )
+        if any(tok in text.lower() for tok in banned):
+            scope_pass = False
+            reasons.append("scope violation: non-cart source referenced")
+
+    if "if any field is missing, fail" in lower_task:
+        missing_tokens = ("missing", "information unavailable", "unavailable", "n/a")
+        if any(tok in text.lower() for tok in missing_tokens):
+            if "fail" not in text.lower() and "failed" not in text.lower():
+                schema_pass = False
+                reasons.append("missing field without explicit failure")
+
+    contract_pass = schema_pass and format_pass and scope_pass
+    return contract_pass, schema_pass, format_pass, scope_pass, "; ".join(reasons)
 
 
 # ---------------------------------------------------------------------------
@@ -405,6 +506,7 @@ async def process_trace(
     trace_id: str | None,
     task: str,
     domain: str,
+    external_metrics: dict | None = None,
 ) -> NormalizedTrace | None:
     """Full pipeline: fetch Laminar spans → label → determine success → store.
 
@@ -466,6 +568,13 @@ async def process_trace(
     canonical_domain = canonicalize_domain(domain) or domain
     resolved_trace_id = trace_id or f"trace-{uuid.uuid4().hex}"
     success, partial = apply_quality_gate_from_judge(history, success, partial)
+    execution_success = bool(success)
+    final_result = _extract_final_result(history)
+    contract_pass, schema_pass, format_pass, scope_pass, contract_reason = _evaluate_contract(task, final_result)
+    if success and not contract_pass:
+        success = False
+        partial = False
+        logger.info("Quality gate: contract validation FAIL -> forcing run failure. reason=%r", contract_reason)
 
     trace = NormalizedTrace(
         trace_id=resolved_trace_id,
@@ -474,16 +583,73 @@ async def process_trace(
         success=success,
         partial=partial,
         steps=steps,
+        contract_pass=contract_pass,
+        schema_pass=schema_pass,
+        format_pass=format_pass,
+        scope_pass=scope_pass,
+        contract_failure_reason=contract_reason,
     )
 
-    # --- handoff to shared ingest path (Mongo + Convex side-channel) ---
-    ingest_trace(
+    run_duration_s = 0.0
+    if trace.steps:
+        run_duration_s = round(
+            sum(max(0, int(s.latency_ms or 0)) for s in trace.steps) / 1000.0,
+            3,
+        )
+
+    # --- efficiency filter: only reinforce path on compact successful runs ---
+    # Bloated runs (judge passed but too many steps) still count toward run_count
+    # so volume grows honestly, but they don't update optimal_actions or boost
+    # success-rate confidence.
+    efficiency_ok = True
+    efficiency_reason = "not evaluated"
+    if success:
+        efficiency_ok, efficiency_reason = _check_efficiency(steps, task, domain)
+        if not efficiency_ok:
+            logger.info("Efficiency filter: %s", efficiency_reason)
+        else:
+            logger.debug("Efficiency filter: %s", efficiency_reason)
+    agent_steps = len(history.history) if hasattr(history, "history") else len(steps)
+    laminar_tool_steps = _count_effective_steps(steps)
+    pipeline_steps_total = len(steps)
+    captcha_events, interstitial_events, modal_recovery_count = _noise_counts(steps)
+    trace.path_update_allowed = bool(success and efficiency_ok)
+    trace.efficiency_reason = efficiency_reason
+    trace.agent_steps = int(agent_steps)
+    trace.laminar_tool_steps = int(laminar_tool_steps)
+    trace.pipeline_steps_total = int(pipeline_steps_total)
+    trace.captcha_events = int(captcha_events)
+    trace.interstitial_events = int(interstitial_events)
+    trace.modal_recovery_count = int(modal_recovery_count)
+
+    # --- handoff to Eric's store_trace ---
+    store_trace(
         task=trace.task,
         domain=trace.domain,
-        steps=[build_step_data(s) for s in trace.steps],
+        trace=[build_step_data(s) for s in trace.steps
+               if s.action_type not in _SKIP_ACTIONS],
         success=trace.success,
-        partial=trace.partial,
-        trace_id=trace.trace_id,
+        path_update_allowed=trace.path_update_allowed,
+        run_metrics={
+            "steps": len(trace.steps),
+            "duration_s": run_duration_s,
+            "final_result": final_result,
+            "path_update_allowed": trace.path_update_allowed,
+            "efficiency_reason": trace.efficiency_reason,
+            "contract_pass": trace.contract_pass,
+            "schema_pass": trace.schema_pass,
+            "format_pass": trace.format_pass,
+            "scope_pass": trace.scope_pass,
+            "contract_failure_reason": trace.contract_failure_reason,
+            "execution_success": execution_success,
+            "agent_steps": trace.agent_steps,
+            "laminar_tool_steps": trace.laminar_tool_steps,
+            "pipeline_steps_total": trace.pipeline_steps_total,
+            "captcha_events": trace.captcha_events,
+            "interstitial_events": trace.interstitial_events,
+            "modal_recovery_count": trace.modal_recovery_count,
+            **(external_metrics or {}),
+        },
     )
 
     if success and not efficiency_ok:
