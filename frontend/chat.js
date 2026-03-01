@@ -5,6 +5,10 @@
 (function () {
   "use strict";
 
+  const runtimeParams = new window.URLSearchParams(window.location.search);
+  const demoMockEnabled = runtimeParams.get("demoMock") === "1";
+
+  const askBar = document.getElementById("ask-bar");
   const askInput = document.getElementById("ask-input");
   const warpCanvas = document.getElementById("warp-canvas");
   const chatBackdrop = document.getElementById("chat-backdrop");
@@ -14,12 +18,32 @@
   const chatInput = document.getElementById("chat-input");
   const chatSend = document.getElementById("chat-send");
 
+  if (
+    !askBar ||
+    !askInput ||
+    !warpCanvas ||
+    !chatBackdrop ||
+    !chatModal ||
+    !chatClose ||
+    !chatMessages ||
+    !chatInput ||
+    !chatSend
+  ) {
+    return;
+  }
+
+  if (!demoMockEnabled) {
+    askBar.style.display = "none";
+    return;
+  }
+
   const ctx = warpCanvas.getContext("2d");
+  if (!ctx) return;
+
   let isOpen = false;
   let warpAnimId = null;
 
   // ---- Warp-speed star field ----
-
   const STAR_COUNT = 600;
   const stars = [];
 
@@ -32,7 +56,7 @@
 
   function initStars() {
     stars.length = 0;
-    for (let i = 0; i < STAR_COUNT; i++) {
+    for (let i = 0; i < STAR_COUNT; i += 1) {
       stars.push({
         x: (Math.random() - 0.5) * warpCanvas.width * 2,
         y: (Math.random() - 0.5) * warpCanvas.height * 2,
@@ -48,11 +72,10 @@
     const cx = w / 2;
     const cy = h / 2;
 
-    // Trail effect — semi-transparent black overlay
     ctx.fillStyle = "rgba(10, 10, 12, 0.15)";
     ctx.fillRect(0, 0, w, h);
 
-    for (const star of stars) {
+    stars.forEach((star) => {
       star.pz = star.z;
       star.z -= speed;
 
@@ -63,19 +86,13 @@
         star.pz = 1500;
       }
 
-      // Current projected position
       const sx = (star.x / star.z) * 300 + cx;
       const sy = (star.y / star.z) * 300 + cy;
-
-      // Previous projected position (for streak)
       const px = (star.x / star.pz) * 300 + cx;
       const py = (star.y / star.pz) * 300 + cy;
-
-      // Brightness based on depth
       const brightness = Math.min(1, (1500 - star.z) / 1000);
       const alpha = brightness * 0.9;
 
-      // Color: warm gold tint matching theme
       const r = 180 + Math.floor(brightness * 40);
       const g = 165 + Math.floor(brightness * 30);
       const b = 130 + Math.floor(brightness * 20);
@@ -87,56 +104,51 @@
       ctx.lineTo(sx, sy);
       ctx.stroke();
 
-      // Add glow dot at tip
       if (brightness > 0.6) {
         ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha * 0.5})`;
         ctx.beginPath();
         ctx.arc(sx, sy, brightness * 1.5, 0, Math.PI * 2);
         ctx.fill();
       }
-    }
+    });
   }
 
   // ---- Warp animation sequence ----
-
   function playWarpEntrance(callback) {
     warpCanvas.classList.remove("chat-hidden");
     initStars();
 
-    // Clear canvas fully
     ctx.fillStyle = "rgba(10, 10, 12, 1)";
     ctx.fillRect(0, 0, warpCanvas.width, warpCanvas.height);
 
     let frame = 0;
-    const totalFrames = 45; // ~0.75s at 60fps
+    const totalFrames = 45;
     const easeOut = (t) => 1 - Math.pow(1 - t, 3);
 
     function animate() {
-      frame++;
+      frame += 1;
       const t = Math.min(frame / totalFrames, 1);
       const easedT = easeOut(t);
-
-      // Speed ramps up then holds
       const speed = 20 + easedT * 60;
       drawWarp(speed);
 
       if (t < 1) {
         warpAnimId = requestAnimationFrame(animate);
-      } else {
-        // Hold the streaks for a moment then fade
-        let holdFrames = 0;
-        function holdAndFade() {
-          holdFrames++;
-          drawWarp(40 - holdFrames * 2);
-          if (holdFrames < 12) {
-            warpAnimId = requestAnimationFrame(holdAndFade);
-          } else {
-            if (callback) callback();
-            fadeOutWarp();
-          }
-        }
-        warpAnimId = requestAnimationFrame(holdAndFade);
+        return;
       }
+
+      let holdFrames = 0;
+      function holdAndFade() {
+        holdFrames += 1;
+        drawWarp(40 - holdFrames * 2);
+        if (holdFrames < 12) {
+          warpAnimId = requestAnimationFrame(holdAndFade);
+          return;
+        }
+        if (typeof callback === "function") callback();
+        fadeOutWarp();
+      }
+      warpAnimId = requestAnimationFrame(holdAndFade);
     }
     warpAnimId = requestAnimationFrame(animate);
   }
@@ -148,35 +160,29 @@
       warpCanvas.style.opacity = Math.max(0, opacity);
       if (opacity > 0) {
         warpAnimId = requestAnimationFrame(fade);
-      } else {
-        warpCanvas.classList.add("chat-hidden");
-        warpCanvas.style.opacity = "";
-        cancelAnimationFrame(warpAnimId);
-        warpAnimId = null;
+        return;
       }
+      warpCanvas.classList.add("chat-hidden");
+      warpCanvas.style.opacity = "";
+      if (warpAnimId) cancelAnimationFrame(warpAnimId);
+      warpAnimId = null;
     }
     warpAnimId = requestAnimationFrame(fade);
   }
 
   // ---- Open / Close ----
-
   function openChat(initialQuery) {
     if (isOpen) return;
     isOpen = true;
 
-    // Start warp, then reveal modal mid-warp
     playWarpEntrance(() => {});
-
-    // Show modal partway through the warp (overlapping)
     setTimeout(() => {
       chatBackdrop.classList.remove("chat-hidden");
       chatModal.classList.remove("chat-hidden");
     }, 400);
 
     chatMessages.innerHTML = "";
-
     if (initialQuery) {
-      // Delay message slightly so modal is visible
       setTimeout(() => {
         addMessage("user", initialQuery);
         sendToBackend(initialQuery);
@@ -199,10 +205,9 @@
   }
 
   // ---- Messages ----
-
   function addMessage(role, text) {
     const div = document.createElement("div");
-    div.className = "chat-msg " + role;
+    div.className = `chat-msg ${role}`;
     div.textContent = text;
     chatMessages.appendChild(div);
     chatMessages.scrollTop = chatMessages.scrollHeight;
@@ -216,7 +221,6 @@
     div.id = "chat-thinking";
     chatMessages.appendChild(div);
     chatMessages.scrollTop = chatMessages.scrollHeight;
-    return div;
   }
 
   function removeThinking() {
@@ -224,13 +228,28 @@
     if (el) el.remove();
   }
 
-  // ---- Backend call ----
+  function buildChatRequest(query) {
+    const sourceGetter = window.__slipstreamGetDataSource;
+    const snapshotGetter = window.__slipstreamGetAnDemoSnapshot;
 
+    const source =
+      typeof sourceGetter === "function" ? sourceGetter() : "demoMock";
+    const demoSnapshot =
+      source === "demoMock" && typeof snapshotGetter === "function"
+        ? snapshotGetter()
+        : null;
+
+    return {
+      message: query,
+      source,
+      demoSnapshot,
+    };
+  }
+
+  // ---- Backend call ----
   async function sendToBackend(query) {
     addThinking();
-
-    // Minimum visible thinking time so the animation registers
-    const minDelay = new Promise((r) => setTimeout(r, 800));
+    const minDelay = new Promise((resolve) => setTimeout(resolve, 800));
 
     try {
       const [, res] = await Promise.all([
@@ -238,29 +257,32 @@
         fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: query }),
+          body: JSON.stringify(buildChatRequest(query)),
         }),
       ]);
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
       const data = await res.json();
       removeThinking();
       addMessage("assistant", data.reply || "No response.");
     } catch (err) {
-      await minDelay;
       removeThinking();
       addMessage(
         "assistant",
-        "Could not reach the server. Make sure the backend is running."
+        "Could not reach insights backend. Verify frontend server is running.",
       );
     }
   }
 
   // ---- Event listeners ----
-
-  askInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && askInput.value.trim()) {
-      openChat(askInput.value.trim());
+  askInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && askInput.value.trim()) {
+      const initialQuery = askInput.value.trim();
       askInput.value = "";
       askInput.blur();
+      openChat(initialQuery);
     }
   });
 
@@ -268,20 +290,20 @@
   chatBackdrop.addEventListener("click", closeChat);
 
   chatSend.addEventListener("click", () => {
-    const val = chatInput.value.trim();
-    if (!val) return;
-    addMessage("user", val);
+    const value = chatInput.value.trim();
+    if (!value) return;
+    addMessage("user", value);
     chatInput.value = "";
-    sendToBackend(val);
+    sendToBackend(value);
   });
 
-  chatInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && chatInput.value.trim()) {
+  chatInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && chatInput.value.trim()) {
       chatSend.click();
     }
   });
 
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && isOpen) closeChat();
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && isOpen) closeChat();
   });
 })();

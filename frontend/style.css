@@ -572,11 +572,15 @@ body::after {
   min-width: 320px;
   animation: fadeSlideIn-right 0.5s var(--snap) both;
   animation-delay: 0.2s;
-  transition: border-color 0.3s var(--snap), box-shadow 0.3s var(--snap);
+  transition:
+    border-color 0.3s var(--snap),
+    box-shadow 0.3s var(--snap);
 }
 #ask-bar:focus-within {
   border-color: rgba(180, 165, 130, 0.35);
-  box-shadow: 0 0 24px rgba(180, 165, 130, 0.06), inset 0 0 20px rgba(180, 165, 130, 0.03);
+  box-shadow:
+    0 0 24px rgba(180, 165, 130, 0.06),
+    inset 0 0 20px rgba(180, 165, 130, 0.03);
 }
 
 #ask-bar-pulse {
@@ -594,8 +598,15 @@ body::after {
 }
 
 @keyframes pulse-dot {
-  0%, 100% { opacity: 0.4; transform: scale(0.8); }
-  50% { opacity: 1; transform: scale(1.2); }
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
 }
 
 #ask-input {
@@ -675,8 +686,9 @@ body::after {
   overflow: hidden;
   transform: translate(-50%, -50%) scale(1);
   opacity: 1;
-  transition: transform 0.7s cubic-bezier(0.16, 1, 0.3, 1),
-              opacity 0.5s var(--snap);
+  transition:
+    transform 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.5s var(--snap);
 }
 #chat-modal.chat-hidden {
   transform: translate(-50%, -50%) scale(0.3);
@@ -713,8 +725,12 @@ body::after {
 }
 
 @keyframes border-sweep {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Header bar inside modal */
@@ -825,8 +841,13 @@ body::after {
 }
 
 @keyframes blink-cursor {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
 }
 
 /* Input row */
@@ -865,7 +886,10 @@ body::after {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.2s var(--snap), border-color 0.2s var(--snap), color 0.2s var(--snap);
+  transition:
+    background 0.2s var(--snap),
+    border-color 0.2s var(--snap),
+    color 0.2s var(--snap);
 }
 #chat-send:hover {
   background: rgba(180, 165, 130, 0.08);
@@ -874,18 +898,34 @@ body::after {
 }
 
 /* Scrollbar */
-#chat-messages::-webkit-scrollbar { width: 3px; }
-#chat-messages::-webkit-scrollbar-track { background: transparent; }
-#chat-messages::-webkit-scrollbar-thumb { background: rgba(100, 100, 100, 0.15); }
+#chat-messages::-webkit-scrollbar {
+  width: 3px;
+}
+#chat-messages::-webkit-scrollbar-track {
+  background: transparent;
+}
+#chat-messages::-webkit-scrollbar-thumb {
+  background: rgba(100, 100, 100, 0.15);
+}
 
 @keyframes fadeSlideIn-right {
-  from { opacity: 0; transform: translateX(20px); }
-  to   { opacity: 1; transform: translateX(0); }
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 @keyframes spin-slow {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ---- Responsive ---- */

@@ -62,6 +62,16 @@
       ringJitterMs: 90,
       edgeLagMs: 120,
     },
+    flyIn: {
+      spawnYOffset: 760,
+      durationMs: 1850,
+      edgeRevealDistance: 8,
+      edgeFadeMs: 320,
+      glowHoldMs: 3000,
+      queueMax: 20,
+      highlightColor: 0xf5e9b8,
+      replayLockBufferMs: 220,
+    },
     ambient: {
       pointsCount: 4000,
       linksCount: 1000,
@@ -82,15 +92,26 @@
       color: 0xc6d4e5,
     },
     camera: {
-      defaultDistance: 380,
-      minDistance: 140,
-      maxDistance: 920,
+      defaultDistance: 520,
+      minDistance: 120,
+      maxDistance: 2800,
       introDurationMs: 3600,
       introNearDistance: 4,
       introFarDistance: 430,
+      launchHoldMs: 2600,
+      frameRadiusScale: 2.75,
+      framePadding: 135,
+      frameSampleMs: 180,
+      frameLerpFactor: 0.33,
+      cinematicFrameScale: 0.86,
       focusDistanceTask: 205,
       focusDistanceDomain: 260,
       zoomStep: 26,
+      wheelDeltaClampPx: 240,
+      wheelZoomSensitivity: 0.00145,
+      pinchZoomSensitivity: 0.00105,
+      wheelTargetFollowFactor: 0.2,
+      wheelTweenMs: 0,
       targetFollowFactor: 0.72,
       cinematicOrbitSpeed: 0.00012,
       cinematicSwitchMs: 6200,
@@ -120,6 +141,10 @@
       containmentRadius: 980,
       containmentPull: 0.09,
       velocityDamping: 0.86,
+    },
+    realtime: {
+      convexSuppressFallbackMs: 1800,
+      seenTraceCap: 2000,
     },
   };
 
@@ -247,6 +272,26 @@
     requestAnimationFrame(tick);
   }
 
+  function animateValueBetween(el, start, end, duration, isPercent) {
+    if (!el) return;
+    if (start === end) {
+      el.textContent = isPercent ? `${end}%` : end.toLocaleString();
+      return;
+    }
+
+    const startTime = performance.now();
+    function tick(now) {
+      const elapsed = now - startTime;
+      const progress = clamp(elapsed / duration, 0, 1);
+      const eased = easeOutCubic(progress);
+      const current = Math.round(start + (end - start) * eased);
+      el.textContent = isPercent ? `${current}%` : current.toLocaleString();
+      if (progress < 1) requestAnimationFrame(tick);
+    }
+
+    requestAnimationFrame(tick);
+  }
+
   function safeNodeId(ref) {
     return typeof ref === "object" && ref !== null ? ref.id : ref;
   }
@@ -256,6 +301,37 @@
     const b = String(targetId);
     return a < b ? `${a}::${b}` : `${b}::${a}`;
   }
+
+  const RUNTIME_PARAMS = new window.URLSearchParams(window.location.search);
+  const RUNTIME_FLAGS = {
+    demoMock: RUNTIME_PARAMS.get("demoMock") === "1",
+  };
+
+  const MOCK_DEMO_CONFIG = {
+    domainCount: 12,
+    tasksPerDomain: 68,
+    lookbackMs: 1000 * 60 * 60 * 24 * 12,
+    maxHistoryEvents: 12000,
+    autoSimMinMs: 1200,
+    autoSimMaxMs: 2400,
+  };
+
+  const MOCK_DOMAIN_POOL = [
+    "amazon.com",
+    "walmart.com",
+    "target.com",
+    "bestbuy.com",
+    "ebay.com",
+    "etsy.com",
+    "costco.com",
+    "homedepot.com",
+    "wayfair.com",
+    "nike.com",
+    "apple.com",
+    "google.com",
+    "github.com",
+    "linkedin.com",
+  ];
 
   // ---- Global state ----
   let graphData = { nodes: [], links: [] };
@@ -272,6 +348,7 @@
   let maxRunCount = 1;
   let maxDomainRuns = 1;
   let nodeById = new Map();
+  let linkById = new Map();
   let adjacencyByNode = new Map();
   let incidentLinksByNode = new Map();
 
@@ -314,6 +391,36 @@
     dirty: true,
   };
 
+  const flyInState = {
+    queue: [],
+    queuedNodeIds: new Set(),
+    active: null,
+    queuedRefresh: false,
+    highlightColor: new THREE.Color(VISUAL_CONFIG.flyIn.highlightColor),
+  };
+
+  const realtimeState = {
+    lastConvexSignalMs: 0,
+    seenTraceIds: new Set(),
+    seenTraceOrder: [],
+    pendingTraceEvents: [],
+  };
+
+  const mockState = {
+    enabled: RUNTIME_FLAGS.demoMock,
+    initialized: false,
+    graphStore: null,
+    historyStore: [],
+    domainList: [],
+    tasksByDomain: new Map(),
+    linkKeys: new Set(),
+    taskSeq: 0,
+    traceSeq: 0,
+    rand: null,
+    autoTimerId: null,
+    autoEnabled: false,
+  };
+
   const cameraState = {
     cinematicEnabled: true,
     userInteracted: false,
@@ -332,6 +439,12 @@
     introFrom: new THREE.Vector3(0, 0, VISUAL_CONFIG.camera.introNearDistance),
     introTo: new THREE.Vector3(0, 90, VISUAL_CONFIG.camera.introFarDistance),
     introTarget: new THREE.Vector3(0, 0, 0),
+    introDirection: new THREE.Vector3(0.9, 0.32, 1).normalize(),
+    frameCenter: new THREE.Vector3(0, 0, 0),
+    framedRadius: VISUAL_CONFIG.camera.defaultDistance * 0.45,
+    framedDistance: VISUAL_CONFIG.camera.defaultDistance,
+    lastFrameSampleMs: 0,
+    launchFrameUntilMs: 0,
   };
 
   const labelState = {
@@ -339,9 +452,546 @@
     lastUpdate: 0,
   };
 
+  function randomIntInclusive(randFn, min, max) {
+    const rand = typeof randFn === "function" ? randFn : Math.random;
+    return Math.floor(rand() * (max - min + 1)) + min;
+  }
+
+  function pickRandom(items, randFn) {
+    if (!items || !items.length) return null;
+    const rand = typeof randFn === "function" ? randFn : Math.random;
+    return items[Math.floor(rand() * items.length)] || null;
+  }
+
+  function cloneNodeForPayload(node) {
+    const copy = { ...node };
+    if (Array.isArray(node.optimal_actions)) {
+      copy.optimal_actions = node.optimal_actions.slice();
+    }
+    if (Array.isArray(node.step_traces)) {
+      copy.step_traces = node.step_traces.map((trace) => ({ ...trace }));
+    }
+    return copy;
+  }
+
+  function cloneGraphPayload(payload) {
+    if (!payload) return { nodes: [], links: [] };
+    return {
+      nodes: (payload.nodes || []).map((node) => cloneNodeForPayload(node)),
+      links: (payload.links || []).map((link) => ({ ...link })),
+    };
+  }
+
+  function cloneHistoryPayload(events) {
+    return { events: (events || []).map((event) => ({ ...event })) };
+  }
+
+  function createMockTaskRecord({
+    domain,
+    domainIndex,
+    sequence,
+    rand,
+    incoming,
+  }) {
+    const intents = [
+      "checkout",
+      "price compare",
+      "inventory check",
+      "order track",
+      "search products",
+      "filter catalog",
+      "collect reviews",
+      "wishlist update",
+    ];
+    const verbs = ["type", "click", "select", "toggle", "submit", "focus"];
+    const targets = [
+      "search_input",
+      "result_card",
+      "filter_chip",
+      "sort_dropdown",
+      "primary_cta",
+      "checkout_button",
+      "details_panel",
+    ];
+    const slug = domain.replace(/[^a-z0-9]/g, "_");
+    const taskId = incoming
+      ? `task:${slug}:live:${sequence}`
+      : `task:${slug}:seed:${sequence}`;
+    const intent = intents[(sequence + domainIndex * 2) % intents.length];
+    const runCount = incoming
+      ? randomIntInclusive(rand, 3, 20)
+      : randomIntInclusive(rand, 6, 110);
+    const confidence = clamp(
+      0.36 + rand() * 0.58 + (incoming ? 0.05 : 0),
+      0.12,
+      0.99,
+    );
+
+    const optimalActions = [];
+    for (let i = 0; i < 3; i += 1) {
+      const verb = verbs[(sequence + domainIndex + i) % verbs.length];
+      const target = targets[(sequence + i * 2) % targets.length];
+      optimalActions.push(`${verb}:${target}`);
+    }
+
+    const stepTraces = optimalActions.map((actionSignature, idx) => ({
+      action_signature: actionSignature,
+      success_rate: clamp(
+        confidence * (0.74 + idx * 0.06 + rand() * 0.12),
+        0.05,
+        0.99,
+      ),
+    }));
+
+    return {
+      id: taskId,
+      type: "task",
+      task: `${intent} on ${domain}`,
+      domain,
+      confidence: Number(confidence.toFixed(3)),
+      run_count: runCount,
+      optimal_actions: optimalActions,
+      step_traces: stepTraces,
+    };
+  }
+
+  function buildMockHistoryEvents(taskNodes, rand) {
+    const nowMs = Date.now();
+    const startMs = nowMs - MOCK_DEMO_CONFIG.lookbackMs;
+    const events = [];
+
+    taskNodes.forEach((node, idx) => {
+      const createdTs = startMs + Math.floor(rand() * (nowMs - startMs));
+      events.push({
+        timestamp: new Date(createdTs).toISOString(),
+        type: "created",
+        node_id: node.id,
+        task: node.task,
+        domain: node.domain,
+        confidence: node.confidence,
+        run_count: node.run_count,
+      });
+
+      if (idx % 3 === 0) {
+        const updateTs =
+          createdTs + randomIntInclusive(rand, 120000, 1000 * 60 * 60 * 36);
+        if (updateTs < nowMs) {
+          events.push({
+            timestamp: new Date(updateTs).toISOString(),
+            type: "updated",
+            node_id: node.id,
+            task: node.task,
+            domain: node.domain,
+            confidence: clamp(node.confidence + (rand() - 0.5) * 0.12, 0.08, 1),
+            run_count: Math.max(
+              1,
+              node.run_count + randomIntInclusive(rand, 1, 12),
+            ),
+          });
+        }
+      }
+    });
+
+    events.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+    return events;
+  }
+
+  function initializeMockDataset() {
+    if (!mockState.enabled || mockState.initialized) return;
+
+    const seed = hashString("slipstream-demo-mock-v1");
+    const rand = mulberry32(seed);
+    const domainList = MOCK_DOMAIN_POOL.slice(
+      0,
+      clamp(MOCK_DEMO_CONFIG.domainCount, 1, MOCK_DOMAIN_POOL.length),
+    );
+    const nodes = [];
+    const links = [];
+    const tasksByDomain = new Map();
+    const linkKeys = new Set();
+    const domainRollups = new Map();
+    let taskSeq = 0;
+
+    function addLink(source, target, type, strength) {
+      if (!source || !target || source === target) return;
+      const key = `${type}:${normalizeLinkPair(source, target)}`;
+      if (linkKeys.has(key)) return;
+      linkKeys.add(key);
+      const link = { source, target, type };
+      if (type === "cross") {
+        link.strength = Math.max(1, Math.round(strength || 1));
+      }
+      links.push(link);
+    }
+
+    domainList.forEach((domain) => {
+      tasksByDomain.set(domain, []);
+      domainRollups.set(domain, {
+        count: 0,
+        totalRuns: 0,
+        totalConfidence: 0,
+      });
+    });
+
+    domainList.forEach((domain, domainIndex) => {
+      const domainId = `domain:${domain}`;
+      for (let i = 0; i < MOCK_DEMO_CONFIG.tasksPerDomain; i += 1) {
+        taskSeq += 1;
+        const taskNode = createMockTaskRecord({
+          domain,
+          domainIndex,
+          sequence: taskSeq,
+          rand,
+          incoming: false,
+        });
+        nodes.push(taskNode);
+        tasksByDomain.get(domain).push(taskNode.id);
+        addLink(domainId, taskNode.id, "hub", 1);
+
+        const rollup = domainRollups.get(domain);
+        rollup.count += 1;
+        rollup.totalRuns += taskNode.run_count || 0;
+        rollup.totalConfidence += taskNode.confidence || 0;
+      }
+    });
+
+    domainList.forEach((domain) => {
+      const rollup = domainRollups.get(domain);
+      const avgConfidence =
+        rollup.count > 0 ? rollup.totalConfidence / rollup.count : 0;
+      nodes.push({
+        id: `domain:${domain}`,
+        type: "domain",
+        domain,
+        task_count: rollup.count,
+        total_runs: rollup.totalRuns,
+        avg_confidence: Number(avgConfidence.toFixed(3)),
+      });
+    });
+
+    domainList.forEach((domain, domainIndex) => {
+      const taskIds = tasksByDomain.get(domain) || [];
+      const len = taskIds.length;
+      if (len < 2) return;
+
+      for (let i = 0; i < len; i += 1) {
+        if (i % 2 === 0) {
+          addLink(
+            taskIds[i],
+            taskIds[(i + 5) % len],
+            "cross",
+            1 + ((i + domainIndex) % 3),
+          );
+        }
+        if (i % 9 === 0) {
+          addLink(
+            taskIds[i],
+            taskIds[(i + 17) % len],
+            "cross",
+            2 + ((i + domainIndex) % 2),
+          );
+        }
+      }
+    });
+
+    domainList.forEach((domain, domainIndex) => {
+      const nextDomain = domainList[(domainIndex + 1) % domainList.length];
+      const aList = tasksByDomain.get(domain) || [];
+      const bList = tasksByDomain.get(nextDomain) || [];
+      const cap = Math.min(20, aList.length, bList.length);
+
+      for (let i = 0; i < cap; i += 2) {
+        const aTask = aList[(i * 3 + domainIndex) % aList.length];
+        const bTask = bList[(i * 5 + domainIndex) % bList.length];
+        addLink(aTask, bTask, "cross", 1 + ((i + domainIndex) % 3));
+      }
+
+      addLink(`domain:${domain}`, `domain:${nextDomain}`, "cross", 1);
+    });
+
+    const taskNodes = nodes.filter((node) => node.type === "task");
+    const historyStore = buildMockHistoryEvents(taskNodes, rand);
+
+    mockState.graphStore = { nodes, links };
+    mockState.historyStore = historyStore;
+    mockState.domainList = domainList.slice();
+    mockState.tasksByDomain = tasksByDomain;
+    mockState.linkKeys = linkKeys;
+    mockState.taskSeq = taskSeq;
+    mockState.traceSeq = taskSeq;
+    mockState.rand = mulberry32(seed ^ 0x9e3779b9);
+    mockState.initialized = true;
+    console.info(
+      "[Slipstream] Frontend demo mock enabled:",
+      `${nodes.length} nodes, ${links.length} links`,
+    );
+  }
+
+  function addMockStoreLink(source, target, type, strength) {
+    if (!mockState.graphStore) return;
+    if (!source || !target || source === target) return;
+    const key = `${type}:${normalizeLinkPair(source, target)}`;
+    if (mockState.linkKeys.has(key)) return;
+
+    mockState.linkKeys.add(key);
+    const link = { source, target, type };
+    if (type === "cross") {
+      link.strength = Math.max(1, Math.round(strength || 1));
+    }
+    mockState.graphStore.links.push(link);
+  }
+
+  function createMockTraceArrivalEvent() {
+    if (!mockState.enabled) return null;
+    initializeMockDataset();
+    if (!mockState.graphStore) return null;
+
+    const rand = mockState.rand || Math.random;
+    const domain = pickRandom(mockState.domainList, rand);
+    if (!domain) return null;
+    const domainIndex = mockState.domainList.indexOf(domain);
+    const domainId = `domain:${domain}`;
+    const existingSameDomain = (
+      mockState.tasksByDomain.get(domain) || []
+    ).slice();
+
+    const sequence = mockState.taskSeq + 1;
+    mockState.taskSeq = sequence;
+
+    const taskNode = createMockTaskRecord({
+      domain,
+      domainIndex: Math.max(0, domainIndex),
+      sequence,
+      rand,
+      incoming: true,
+    });
+
+    mockState.graphStore.nodes.push(taskNode);
+    if (!mockState.tasksByDomain.has(domain)) {
+      mockState.tasksByDomain.set(domain, []);
+    }
+    mockState.tasksByDomain.get(domain).push(taskNode.id);
+
+    let domainNode = mockState.graphStore.nodes.find(
+      (node) => node.id === domainId && node.type === "domain",
+    );
+    if (!domainNode) {
+      domainNode = {
+        id: domainId,
+        type: "domain",
+        domain,
+        task_count: 0,
+        total_runs: 0,
+        avg_confidence: 0,
+      };
+      mockState.graphStore.nodes.push(domainNode);
+      if (!mockState.domainList.includes(domain)) {
+        mockState.domainList.push(domain);
+      }
+    }
+
+    const prevCount = domainNode.task_count || 0;
+    const prevAvg = domainNode.avg_confidence || 0;
+    const prevConfTotal = prevCount * prevAvg;
+    domainNode.task_count = prevCount + 1;
+    domainNode.total_runs =
+      (domainNode.total_runs || 0) + (taskNode.run_count || 0);
+    domainNode.avg_confidence = Number(
+      (
+        (prevConfTotal + (taskNode.confidence || 0)) /
+        domainNode.task_count
+      ).toFixed(3),
+    );
+
+    addMockStoreLink(domainId, taskNode.id, "hub", 1);
+
+    const localLinkCount = Math.min(3, existingSameDomain.length);
+    for (let i = 0; i < localLinkCount; i += 1) {
+      const peer = pickRandom(existingSameDomain, rand);
+      if (!peer) continue;
+      addMockStoreLink(taskNode.id, peer, "cross", 1 + i);
+    }
+
+    const otherDomains = mockState.domainList.filter(
+      (candidate) =>
+        candidate !== domain &&
+        (mockState.tasksByDomain.get(candidate) || []).length > 0,
+    );
+    if (otherDomains.length > 0) {
+      const targetDomain = pickRandom(otherDomains, rand);
+      const domainTasks = mockState.tasksByDomain.get(targetDomain) || [];
+      const targetTask = pickRandom(domainTasks, rand);
+      if (targetTask) {
+        addMockStoreLink(
+          taskNode.id,
+          targetTask,
+          "cross",
+          randomIntInclusive(rand, 1, 3),
+        );
+        addMockStoreLink(domainId, `domain:${targetDomain}`, "cross", 1);
+      }
+    }
+
+    const nowMs = Date.now();
+    mockState.historyStore.push({
+      timestamp: new Date(nowMs).toISOString(),
+      type: "created",
+      node_id: taskNode.id,
+      task: taskNode.task,
+      domain: taskNode.domain,
+      confidence: taskNode.confidence,
+      run_count: taskNode.run_count,
+    });
+    if (mockState.historyStore.length > MOCK_DEMO_CONFIG.maxHistoryEvents) {
+      mockState.historyStore.splice(
+        0,
+        mockState.historyStore.length - MOCK_DEMO_CONFIG.maxHistoryEvents,
+      );
+    }
+
+    mockState.traceSeq += 1;
+    return {
+      type: "trace_arrived",
+      trace_id: `mock-trace-${mockState.traceSeq}`,
+      task: taskNode.task,
+      domain: taskNode.domain,
+      success: true,
+      partial: false,
+      step_count: taskNode.step_traces.length,
+      timestamp_ms: nowMs,
+      signal_source: "demo_mock",
+    };
+  }
+
+  function clearMockAutoTimer() {
+    if (!mockState.autoTimerId) return;
+    clearTimeout(mockState.autoTimerId);
+    mockState.autoTimerId = null;
+  }
+
+  function scheduleMockAutoSim() {
+    if (!mockState.autoEnabled) return;
+
+    const rand = mockState.rand || Math.random;
+    const delayMs = randomIntInclusive(
+      rand,
+      MOCK_DEMO_CONFIG.autoSimMinMs,
+      MOCK_DEMO_CONFIG.autoSimMaxMs,
+    );
+
+    mockState.autoTimerId = setTimeout(async () => {
+      mockState.autoTimerId = null;
+      if (!mockState.autoEnabled) return;
+
+      const event = createMockTraceArrivalEvent();
+      if (event) await handleTraceArrivedEvent(event);
+      scheduleMockAutoSim();
+    }, delayMs);
+  }
+
+  function setMockAutoSimulate(enabled) {
+    mockState.autoEnabled = !!enabled;
+    clearMockAutoTimer();
+    if (mockState.autoEnabled) {
+      scheduleMockAutoSim();
+    }
+  }
+
+  async function fetchGraphPayload() {
+    if (mockState.enabled) {
+      initializeMockDataset();
+      return cloneGraphPayload(mockState.graphStore);
+    }
+
+    const res = await fetch("/api/graph");
+    return res.json();
+  }
+
+  async function fetchHistoryPayload() {
+    if (mockState.enabled) {
+      initializeMockDataset();
+      return cloneHistoryPayload(mockState.historyStore);
+    }
+
+    const res = await fetch("/api/graph/history");
+    return res.json();
+  }
+
+  function getRuntimeDataSource() {
+    return mockState.enabled ? "demoMock" : "live";
+  }
+
+  function buildDemoSnapshot() {
+    if (!mockState.enabled) return null;
+    initializeMockDataset();
+    if (!mockState.graphStore) return null;
+
+    const taskRows = mockState.graphStore.nodes
+      .filter((node) => node.type === "task")
+      .map((node) => ({
+        task: String(node.task || ""),
+        domain: String(node.domain || ""),
+        confidence: clamp(Number(node.confidence || 0), 0, 1),
+        run_count: Math.max(0, Number(node.run_count || 0)),
+        optimal_actions: Array.isArray(node.optimal_actions)
+          ? node.optimal_actions.slice(0, 8)
+          : [],
+      }));
+
+    const domainMap = new Map();
+    taskRows.forEach((task) => {
+      if (!task.domain) return;
+      if (!domainMap.has(task.domain)) {
+        domainMap.set(task.domain, {
+          domain: task.domain,
+          task_count: 0,
+          total_runs: 0,
+          confidence_sum: 0,
+        });
+      }
+      const rollup = domainMap.get(task.domain);
+      rollup.task_count += 1;
+      rollup.total_runs += task.run_count;
+      rollup.confidence_sum += task.confidence;
+    });
+
+    const domains = Array.from(domainMap.values())
+      .map((rollup) => ({
+        domain: rollup.domain,
+        task_count: rollup.task_count,
+        total_runs: rollup.total_runs,
+        avg_confidence:
+          rollup.task_count > 0 ? rollup.confidence_sum / rollup.task_count : 0,
+      }))
+      .sort((a, b) => b.total_runs - a.total_runs);
+
+    const totalRuns = taskRows.reduce((sum, task) => sum + task.run_count, 0);
+    const avgConfidence =
+      taskRows.length > 0
+        ? taskRows.reduce((sum, task) => sum + task.confidence, 0) /
+          taskRows.length
+        : 0;
+
+    return {
+      tasks: taskRows,
+      domains,
+      totals: {
+        task_count: taskRows.length,
+        domain_count: domains.length,
+        total_runs: totalRuns,
+        avg_confidence: avgConfidence,
+      },
+      generatedAt: new Date().toISOString(),
+    };
+  }
+
+  window.__slipstreamGetDataSource = getRuntimeDataSource;
+  window.__slipstreamGetAnDemoSnapshot = buildDemoSnapshot;
+
   // ---- Derived metrics and graph-state enrichment ----
   function computeDerivedMetrics() {
     nodeById = new Map();
+    linkById = new Map();
     adjacencyByNode = new Map();
     incidentLinksByNode = new Map();
 
@@ -396,6 +1046,8 @@
       link.__id = `${dupKey}:${serial}`;
       if (link.__timelineVisible === undefined) link.__timelineVisible = true;
       if (link.__replayVisible === undefined) link.__replayVisible = true;
+      if (link.__flyInVisible === undefined) link.__flyInVisible = true;
+      if (link.__flyInFadeStartMs === undefined) link.__flyInFadeStartMs = null;
 
       const sourceReliability = sourceNode
         ? sourceNode.__routeReliability
@@ -441,8 +1093,11 @@
       link.__visible =
         link.__timelineVisible !== false &&
         link.__replayVisible !== false &&
+        link.__flyInVisible !== false &&
         sourceNode?.__visible !== false &&
         targetNode?.__visible !== false;
+
+      linkById.set(link.__id, link);
     });
 
     particleBudgetState.dirty = true;
@@ -557,6 +1212,7 @@
   function isLinkVisibleByComposite(link) {
     if (link.__timelineVisible === false || link.__replayVisible === false)
       return false;
+    if (link.__flyInVisible === false) return false;
 
     const source = nodeById.get(safeNodeId(link.source));
     const target = nodeById.get(safeNodeId(link.target));
@@ -613,6 +1269,15 @@
         ? "Replaying..."
         : "Replay Growth";
     }
+
+    if (!locked) {
+      syncReplayButtonAvailability();
+    }
+  }
+
+  function syncReplayButtonAvailability() {
+    if (!dom.btnReplayGrowth || replayState.active) return;
+    dom.btnReplayGrowth.disabled = !!flyInState.active;
   }
 
   function pickReplayHubNode() {
@@ -728,7 +1393,13 @@
   }
 
   function startReplayGrowth() {
-    if (!graph || replayState.active || !graphData.nodes.length) return;
+    if (
+      !graph ||
+      replayState.active ||
+      flyInState.active ||
+      !graphData.nodes.length
+    )
+      return;
 
     if (isPlaying) togglePlay();
 
@@ -759,6 +1430,191 @@
     applyCompositeVisibility();
     refreshLinkAccessors();
     scheduleLabelUpdate();
+  }
+
+  function flyInLinkProgress(link, nowMs) {
+    if (!link) return 1;
+    if (link.__flyInVisible === false) return 0;
+    if (!Number.isFinite(link.__flyInFadeStartMs)) return 1;
+    const progress = clamp(
+      (nowMs - link.__flyInFadeStartMs) / VISUAL_CONFIG.flyIn.edgeFadeMs,
+      0,
+      1,
+    );
+    return easeOutCubic(progress);
+  }
+
+  function resolveFlyInTarget(node) {
+    if (
+      Number.isFinite(node.x) &&
+      Number.isFinite(node.y) &&
+      Number.isFinite(node.z)
+    ) {
+      return new THREE.Vector3(node.x, node.y, node.z);
+    }
+
+    const domainNode = graphData.nodes.find(
+      (candidate) =>
+        candidate.type === "domain" && candidate.domain === node.domain,
+    );
+    if (
+      domainNode &&
+      Number.isFinite(domainNode.x) &&
+      Number.isFinite(domainNode.y) &&
+      Number.isFinite(domainNode.z)
+    ) {
+      return new THREE.Vector3(
+        domainNode.x + (Math.random() - 0.5) * 26,
+        domainNode.y + (Math.random() - 0.5) * 22,
+        domainNode.z + (Math.random() - 0.5) * 26,
+      );
+    }
+
+    const { center } = estimateGraphCenterAndRadius();
+    return center.clone();
+  }
+
+  function enqueueIncomingNode(nodeId) {
+    if (!nodeId) return;
+    if (flyInState.active?.nodeId === nodeId) return;
+    if (flyInState.queuedNodeIds.has(nodeId)) return;
+
+    if (flyInState.queue.length >= VISUAL_CONFIG.flyIn.queueMax) {
+      const dropped = flyInState.queue.shift();
+      if (dropped) flyInState.queuedNodeIds.delete(dropped.nodeId);
+    }
+
+    flyInState.queue.push({ nodeId });
+    flyInState.queuedNodeIds.add(nodeId);
+    syncReplayButtonAvailability();
+  }
+
+  function beginNextFlyIn(nowMs) {
+    if (flyInState.active || replayState.active) return;
+
+    while (flyInState.queue.length) {
+      const next = flyInState.queue.shift();
+      if (!next) return;
+      flyInState.queuedNodeIds.delete(next.nodeId);
+
+      const node = nodeById.get(next.nodeId);
+      if (!node || node.__visible === false) continue;
+
+      const target = resolveFlyInTarget(node);
+      const source = target.clone();
+      source.y += VISUAL_CONFIG.flyIn.spawnYOffset;
+
+      node.x = source.x;
+      node.y = source.y;
+      node.z = source.z;
+      node.fx = source.x;
+      node.fy = source.y;
+      node.fz = source.z;
+      node.__incomingGlowUntilMs =
+        nowMs + VISUAL_CONFIG.flyIn.durationMs + VISUAL_CONFIG.flyIn.glowHoldMs;
+
+      const linkIds = new Set(incidentLinksByNode.get(node.id) || []);
+      linkIds.forEach((linkId) => {
+        const link = linkById.get(linkId);
+        if (!link) return;
+        link.__flyInVisible = false;
+        link.__flyInFadeStartMs = null;
+      });
+
+      flyInState.active = {
+        nodeId: node.id,
+        source,
+        target,
+        linkIds,
+        startMs: nowMs,
+        durationMs: VISUAL_CONFIG.flyIn.durationMs,
+        edgeRevealStarted: false,
+      };
+      applyCompositeVisibility();
+      syncReplayButtonAvailability();
+      return;
+    }
+
+    syncReplayButtonAvailability();
+  }
+
+  function updateFlyInAnimation(nowMs) {
+    if (!graph) return;
+    if (!flyInState.active) {
+      beginNextFlyIn(nowMs);
+      return;
+    }
+
+    const active = flyInState.active;
+    const node = nodeById.get(active.nodeId);
+    if (!node) {
+      flyInState.active = null;
+      syncReplayButtonAvailability();
+      return;
+    }
+
+    const progress = clamp((nowMs - active.startMs) / active.durationMs, 0, 1);
+    const eased = easeInOutCubic(progress);
+    const x = lerp(active.source.x, active.target.x, eased);
+    const y = lerp(active.source.y, active.target.y, eased);
+    const z = lerp(active.source.z, active.target.z, eased);
+
+    node.x = x;
+    node.y = y;
+    node.z = z;
+    node.fx = x;
+    node.fy = y;
+    node.fz = z;
+
+    const dx = active.target.x - x;
+    const dy = active.target.y - y;
+    const dz = active.target.z - z;
+    const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+    if (
+      !active.edgeRevealStarted &&
+      (dist <= VISUAL_CONFIG.flyIn.edgeRevealDistance || progress >= 0.88)
+    ) {
+      active.edgeRevealStarted = true;
+      active.linkIds.forEach((linkId) => {
+        const link = linkById.get(linkId);
+        if (!link) return;
+        link.__flyInVisible = true;
+        link.__flyInFadeStartMs = nowMs;
+      });
+      applyCompositeVisibility();
+    }
+
+    if (progress < 1) return;
+
+    node.fx = null;
+    node.fy = null;
+    node.fz = null;
+    node.__incomingGlowUntilMs = nowMs + VISUAL_CONFIG.flyIn.glowHoldMs;
+
+    active.linkIds.forEach((linkId) => {
+      const link = linkById.get(linkId);
+      if (!link) return;
+      if (link.__flyInVisible === false) {
+        link.__flyInVisible = true;
+      }
+      if (!Number.isFinite(link.__flyInFadeStartMs)) {
+        link.__flyInFadeStartMs = nowMs;
+      }
+    });
+
+    flyInState.active = null;
+    refreshLinkAccessors();
+    applyCompositeVisibility();
+    syncReplayButtonAvailability();
+    beginNextFlyIn(nowMs + VISUAL_CONFIG.flyIn.replayLockBufferMs);
+
+    if (flyInState.queuedRefresh) {
+      flyInState.queuedRefresh = false;
+      refreshGraphWithDiff().then((result) => {
+        flushPendingTraceEvents(result);
+      });
+    }
   }
 
   function updateParticleBudget(force) {
@@ -935,6 +1791,8 @@
       nodeType: node.type,
       pulsePhase: node.__pulsePhase || 0,
       baseCoreOpacity: coreMaterial ? coreMaterial.opacity : 0.8,
+      baseCoreColor:
+        coreMaterial && coreMaterial.color ? coreMaterial.color.clone() : null,
       baseInnerOpacity: innerGlowMaterial.opacity,
       baseOuterOpacity: outerGlowMaterial.opacity,
       coreMaterial,
@@ -950,7 +1808,9 @@
   function linkColor(link) {
     if (!link) return "rgba(140, 145, 152, 0.1)";
     const replayProgress = replayLinkProgress(link, replayState.nowMs);
-    if (replayProgress <= 0.001) return "rgba(140, 145, 152, 0)";
+    const flyProgress = flyInLinkProgress(link, replayState.nowMs);
+    if (replayProgress <= 0.001 || flyProgress <= 0.001)
+      return "rgba(140, 145, 152, 0)";
     const strength = clamp(link.__routeStrength || 0.45, 0, 1);
     const hoverActive = !!hoverState.activeNodeId;
     const inFocus = !hoverActive || hoverState.activeLinkIds.has(link.__id);
@@ -964,7 +1824,7 @@
       } else if (hoverActive && inFocus) {
         alpha = clamp(alpha + VISUAL_CONFIG.hover.focusLinkAlphaBoost, 0, 0.95);
       }
-      alpha *= replayProgress;
+      alpha *= replayProgress * flyProgress;
       return `rgba(176, 184, 194, ${alpha.toFixed(2)})`;
     }
 
@@ -976,14 +1836,15 @@
     } else if (hoverActive && inFocus) {
       alpha = clamp(alpha + VISUAL_CONFIG.hover.focusLinkAlphaBoost, 0, 0.95);
     }
-    alpha *= replayProgress;
+    alpha *= replayProgress * flyProgress;
     return `rgba(140, 145, 152, ${alpha.toFixed(2)})`;
   }
 
   function linkWidth(link) {
     if (!link) return VISUAL_CONFIG.links.hubBaseWidth;
     const replayProgress = replayLinkProgress(link, replayState.nowMs);
-    if (replayProgress <= 0.001) return 0;
+    const flyProgress = flyInLinkProgress(link, replayState.nowMs);
+    if (replayProgress <= 0.001 || flyProgress <= 0.001) return 0;
     const strength = clamp(link.__routeStrength || 0.45, 0, 1);
     const hoverActive = !!hoverState.activeNodeId;
     const inFocus = !hoverActive || hoverState.activeLinkIds.has(link.__id);
@@ -1000,12 +1861,13 @@
       width *= VISUAL_CONFIG.hover.focusLinkWidthBoost;
     }
 
-    return width * replayProgress;
+    return width * replayProgress * flyProgress;
   }
 
   function linkParticles(link) {
     if (!link) return 0;
     if (link.__visible === false) return 0;
+    if (flyInLinkProgress(link, replayState.nowMs) < 0.82) return 0;
     if (
       replayState.active &&
       replayLinkProgress(link, replayState.nowMs) < 0.78
@@ -1310,36 +2172,85 @@
     return { center, radius };
   }
 
+  function computeFramedDistance(radius) {
+    const paddedRadius =
+      Math.max(60, radius) + VISUAL_CONFIG.camera.framePadding;
+    const desiredDistance = Math.max(
+      VISUAL_CONFIG.camera.introFarDistance,
+      paddedRadius * VISUAL_CONFIG.camera.frameRadiusScale,
+    );
+
+    return clamp(
+      desiredDistance,
+      VISUAL_CONFIG.camera.minDistance * 0.95,
+      VISUAL_CONFIG.camera.maxDistance * 0.98,
+    );
+  }
+
+  function sampleNetworkFraming(nowMs, force) {
+    const throttleMs = Math.max(16, VISUAL_CONFIG.camera.frameSampleMs);
+    if (
+      !force &&
+      nowMs - cameraState.lastFrameSampleMs < throttleMs &&
+      cameraState.framedDistance > 0
+    ) {
+      return {
+        center: cameraState.frameCenter.clone(),
+        radius: cameraState.framedRadius,
+        distance: cameraState.framedDistance,
+      };
+    }
+
+    const { center, radius } = estimateGraphCenterAndRadius();
+    const desiredDistance = computeFramedDistance(radius);
+    const lerpFactor = force
+      ? 1
+      : clamp(VISUAL_CONFIG.camera.frameLerpFactor, 0.05, 1);
+
+    cameraState.frameCenter.lerp(center, lerpFactor);
+    cameraState.framedRadius = lerp(
+      cameraState.framedRadius,
+      radius,
+      lerpFactor,
+    );
+    cameraState.framedDistance = lerp(
+      cameraState.framedDistance,
+      desiredDistance,
+      lerpFactor,
+    );
+    cameraState.lastFrameSampleMs = nowMs;
+
+    return {
+      center: cameraState.frameCenter.clone(),
+      radius: cameraState.framedRadius,
+      distance: cameraState.framedDistance,
+    };
+  }
+
   function startCameraIntro() {
     if (!graph) return;
 
-    const { center, radius } = estimateGraphCenterAndRadius();
-    const baseDir = new THREE.Vector3(0.9, 0.32, 1).normalize();
+    const nowMs = performance.now();
+    const frame = sampleNetworkFraming(nowMs, true);
+    const baseDir = cameraState.introDirection.clone().normalize();
     const nearDistance = Math.max(0.1, VISUAL_CONFIG.camera.introNearDistance);
-    const framedDistance = Math.max(
-      VISUAL_CONFIG.camera.introFarDistance,
-      radius * 2.2,
-    );
-    const farDistance = clamp(
-      framedDistance,
-      VISUAL_CONFIG.camera.minDistance * 0.95,
-      VISUAL_CONFIG.camera.maxDistance * 0.92,
-    );
+    const farDistance = frame.distance;
 
-    cameraState.introTarget.copy(center);
-    cameraState.target.copy(center);
+    cameraState.introTarget.copy(frame.center);
+    cameraState.target.copy(frame.center);
     cameraState.introFrom.copy(
-      center.clone().add(baseDir.clone().multiplyScalar(nearDistance)),
+      frame.center.clone().add(baseDir.clone().multiplyScalar(nearDistance)),
     );
     cameraState.introTo.copy(
-      center
+      frame.center
         .clone()
         .add(baseDir.clone().multiplyScalar(farDistance))
-        .add(new THREE.Vector3(0, radius * 0.12, 0)),
+        .add(new THREE.Vector3(0, frame.radius * 0.12, 0)),
     );
-    cameraState.introStartMs = performance.now();
+    cameraState.introStartMs = nowMs;
     cameraState.introActive = true;
     cameraState.introPlayed = false;
+    cameraState.launchFrameUntilMs = 0;
     cameraState.nextFocusSwitchTs = 0;
 
     graph.cameraPosition(
@@ -1359,6 +2270,14 @@
 
   function updateCameraIntro(nowMs) {
     if (!graph || !cameraState.introActive) return false;
+
+    const frame = sampleNetworkFraming(nowMs, false);
+    cameraState.introTarget.lerp(frame.center, 0.2);
+    const desiredIntroTo = cameraState.introTarget
+      .clone()
+      .add(cameraState.introDirection.clone().multiplyScalar(frame.distance))
+      .add(new THREE.Vector3(0, frame.radius * 0.12, 0));
+    cameraState.introTo.lerp(desiredIntroTo, 0.24);
 
     const elapsed = nowMs - cameraState.introStartMs;
     const t = clamp(elapsed / VISUAL_CONFIG.camera.introDurationMs, 0, 1);
@@ -1381,6 +2300,8 @@
       cameraState.introActive = false;
       cameraState.introPlayed = true;
       cameraState.target.copy(cameraState.introTarget);
+      cameraState.launchFrameUntilMs =
+        nowMs + VISUAL_CONFIG.camera.launchHoldMs;
       cameraState.nextFocusSwitchTs = nowMs + 1200;
       return false;
     }
@@ -1420,9 +2341,13 @@
       cameraState.focusedNodeId = null;
       if (!cameraState.introPlayed) {
         startCameraIntro();
+      } else {
+        cameraState.launchFrameUntilMs =
+          performance.now() + VISUAL_CONFIG.camera.launchHoldMs * 0.65;
       }
     } else {
       cameraState.introActive = false;
+      cameraState.launchFrameUntilMs = 0;
     }
 
     updateCinematicButton();
@@ -1476,58 +2401,87 @@
     cameraState.pointerNDC.set(clamp(x, -1, 1), clamp(y, -1, 1));
   }
 
+  function normalizeWheelDelta(evt) {
+    let delta = Number(evt.deltaY || 0);
+    if (!Number.isFinite(delta)) return 0;
+
+    // Normalize line/page wheel modes to px-like deltas for consistent zoom feel.
+    if (evt.deltaMode === 1) {
+      delta *= 16;
+    } else if (evt.deltaMode === 2) {
+      delta *= window.innerHeight || 800;
+    }
+
+    return clamp(
+      delta,
+      -VISUAL_CONFIG.camera.wheelDeltaClampPx,
+      VISUAL_CONFIG.camera.wheelDeltaClampPx,
+    );
+  }
+
   function handleCursorDolly(evt) {
     if (!graph) return;
 
     evt.preventDefault();
+    evt.stopPropagation();
     disableCinematic();
 
     if (Number.isFinite(evt.clientX) && Number.isFinite(evt.clientY)) {
       updatePointerNDC(evt);
     }
 
-    const camera = graph.camera();
-    const raycaster = new THREE.Raycaster();
-    raycaster.setFromCamera(cameraState.pointerNDC, camera);
-
-    const direction = raycaster.ray.direction.clone().normalize();
-    const amount =
-      evt.deltaY < 0
-        ? VISUAL_CONFIG.camera.zoomStep
-        : -VISUAL_CONFIG.camera.zoomStep;
+    const normalizedDelta = normalizeWheelDelta(evt);
+    if (Math.abs(normalizedDelta) < 0.001) return;
+    const isPinchGesture = evt.ctrlKey === true;
+    const zoomSensitivity = isPinchGesture
+      ? VISUAL_CONFIG.camera.pinchZoomSensitivity
+      : VISUAL_CONFIG.camera.wheelZoomSensitivity;
+    const zoomFactor = Math.exp(normalizedDelta * zoomSensitivity);
 
     const currentPos = getCameraPositionVector();
-    let nextPos = currentPos
-      .clone()
-      .add(direction.clone().multiplyScalar(amount));
-    const nextTarget = cameraState.target
-      .clone()
-      .add(
-        direction
-          .clone()
-          .multiplyScalar(amount * VISUAL_CONFIG.camera.targetFollowFactor),
-      );
-
-    let distance = nextPos.distanceTo(nextTarget);
-    if (
-      distance < VISUAL_CONFIG.camera.minDistance ||
-      distance > VISUAL_CONFIG.camera.maxDistance
-    ) {
-      const dir = nextPos.clone().sub(nextTarget).normalize();
-      distance = clamp(
-        distance,
-        VISUAL_CONFIG.camera.minDistance,
-        VISUAL_CONFIG.camera.maxDistance,
-      );
-      nextPos = nextTarget.clone().add(dir.multiplyScalar(distance));
+    const currentTarget = cameraState.target.clone();
+    let viewDirection = currentPos.clone().sub(currentTarget);
+    if (viewDirection.lengthSq() < 0.00001) {
+      viewDirection.set(1, 0.35, 1);
     }
+
+    const currentDistance = clamp(
+      viewDirection.length(),
+      VISUAL_CONFIG.camera.minDistance,
+      VISUAL_CONFIG.camera.maxDistance,
+    );
+    viewDirection.normalize();
+    const nextDistance = clamp(
+      currentDistance * zoomFactor,
+      VISUAL_CONFIG.camera.minDistance,
+      VISUAL_CONFIG.camera.maxDistance,
+    );
+
+    let nextTarget = currentTarget.clone();
+    if (!isPinchGesture && VISUAL_CONFIG.camera.wheelTargetFollowFactor > 0) {
+      const camera = graph.camera();
+      const raycaster = new THREE.Raycaster();
+      raycaster.setFromCamera(cameraState.pointerNDC, camera);
+
+      const pointerDirection = raycaster.ray.direction.clone().normalize();
+      const distanceDelta = nextDistance - currentDistance;
+      nextTarget.add(
+        pointerDirection.multiplyScalar(
+          distanceDelta * VISUAL_CONFIG.camera.wheelTargetFollowFactor,
+        ),
+      );
+    }
+
+    const nextPos = nextTarget
+      .clone()
+      .add(viewDirection.multiplyScalar(nextDistance));
 
     cameraState.target.copy(nextTarget);
 
     graph.cameraPosition(
       { x: nextPos.x, y: nextPos.y, z: nextPos.z },
       { x: nextTarget.x, y: nextTarget.y, z: nextTarget.z },
-      120,
+      VISUAL_CONFIG.camera.wheelTweenMs,
     );
 
     scheduleLabelUpdate();
@@ -1563,6 +2517,39 @@
   function updateCinematicCamera(dtMs, nowMs) {
     if (!graph || !cameraState.cinematicEnabled) return;
 
+    const frame = sampleNetworkFraming(nowMs, false);
+    if (nowMs < cameraState.launchFrameUntilMs) {
+      // Keep launch sequence wide so the full constellation is visible before target hopping.
+      cameraState.target.lerp(frame.center, 0.16);
+      cameraState.orbitAngle +=
+        dtMs * VISUAL_CONFIG.camera.cinematicOrbitSpeed * 0.58;
+
+      const radiusBase = Math.max(
+        VISUAL_CONFIG.camera.defaultDistance,
+        frame.distance * 0.92,
+      );
+      const radius = radiusBase * (0.96 + 0.06 * Math.sin(nowMs * 0.00015));
+      const height =
+        cameraState.target.y +
+        Math.max(VISUAL_CONFIG.camera.cinematicHeight, frame.radius * 0.18) +
+        Math.sin(nowMs * 0.0002) * (VISUAL_CONFIG.camera.cinematicBob * 0.55);
+
+      graph.cameraPosition(
+        {
+          x: cameraState.target.x + Math.cos(cameraState.orbitAngle) * radius,
+          y: height,
+          z: cameraState.target.z + Math.sin(cameraState.orbitAngle) * radius,
+        },
+        {
+          x: cameraState.target.x,
+          y: cameraState.target.y,
+          z: cameraState.target.z,
+        },
+        0,
+      );
+      return;
+    }
+
     const nextSwitchDue = nowMs >= cameraState.nextFocusSwitchTs;
     if (nextSwitchDue) {
       const targetNode = pickNextCinematicTarget();
@@ -1585,14 +2572,18 @@
       targetNode.z,
     );
     cameraState.target.lerp(desiredTarget, 0.035);
+    cameraState.target.lerp(frame.center, 0.04);
 
     cameraState.orbitAngle += dtMs * VISUAL_CONFIG.camera.cinematicOrbitSpeed;
 
-    const radiusBase = VISUAL_CONFIG.camera.defaultDistance;
+    const radiusBase = Math.max(
+      VISUAL_CONFIG.camera.defaultDistance,
+      frame.distance * VISUAL_CONFIG.camera.cinematicFrameScale,
+    );
     const radius = radiusBase * (0.88 + 0.17 * Math.sin(nowMs * 0.00017));
     const height =
       cameraState.target.y +
-      VISUAL_CONFIG.camera.cinematicHeight +
+      Math.max(VISUAL_CONFIG.camera.cinematicHeight, frame.radius * 0.16) +
       Math.sin(nowMs * 0.00023) * VISUAL_CONFIG.camera.cinematicBob;
 
     const nextPos = {
@@ -1617,7 +2608,10 @@
       updatePointerNDC(evt);
     });
 
-    dom.graph.addEventListener("wheel", handleCursorDolly, { passive: false });
+    dom.graph.addEventListener("wheel", handleCursorDolly, {
+      passive: false,
+      capture: true,
+    });
 
     const stopCinematic = () => {
       disableCinematic();
@@ -1686,6 +2680,11 @@
         replayNodeProgress(node, replayState.nowMs) < 0.82
       ) {
         label.visible = false;
+        return;
+      }
+
+      if (flyInState.active?.nodeId === node.id) {
+        label.visible = true;
         return;
       }
 
@@ -1826,7 +2825,27 @@
         scale *= VISUAL_CONFIG.hover.dimNodeScaleFactor;
       }
 
+      const isActiveFlyIn = flyInState.active?.nodeId === node.id;
+      let incomingGlow = 0;
+      if (isActiveFlyIn) {
+        incomingGlow = 1;
+      } else if (Number.isFinite(node.__incomingGlowUntilMs)) {
+        const remainingMs = node.__incomingGlowUntilMs - nowMs;
+        if (remainingMs > 0) {
+          incomingGlow = clamp(
+            remainingMs / VISUAL_CONFIG.flyIn.glowHoldMs,
+            0,
+            1,
+          );
+        } else {
+          node.__incomingGlowUntilMs = null;
+        }
+      }
+
       scale *= replayScale;
+      if (incomingGlow > 0) {
+        scale *= 1 + incomingGlow * 0.14;
+      }
       node.__threeObj.scale.set(scale, scale, scale);
 
       let opacityFactor = 1;
@@ -1837,6 +2856,7 @@
       } else if (isDimmed) {
         opacityFactor = VISUAL_CONFIG.hover.dimNodeOpacityFactor;
       }
+      opacityFactor *= 1 + incomingGlow * 0.22;
 
       if (data.coreMaterial) {
         data.coreMaterial.opacity = clamp(
@@ -1847,6 +2867,12 @@
           0.0,
           1,
         );
+
+        if (data.baseCoreColor) {
+          data.coreMaterial.color
+            .copy(data.baseCoreColor)
+            .lerp(flyInState.highlightColor, incomingGlow);
+        }
       }
       if (data.innerGlowMaterial) {
         data.innerGlowMaterial.opacity = clamp(
@@ -1861,7 +2887,7 @@
       if (data.outerGlowMaterial) {
         data.outerGlowMaterial.opacity = clamp(
           data.baseOuterOpacity *
-            (0.88 + pulse * 0.18) *
+            (0.88 + pulse * 0.18 + incomingGlow * 0.35) *
             opacityFactor *
             replayOpacity,
           0.0,
@@ -1879,6 +2905,8 @@
           data.labelSprite.material.opacity = 0.98;
         } else if (isHoverNeighbor) {
           data.labelSprite.material.opacity = 0.84;
+        } else if (incomingGlow > 0.05) {
+          data.labelSprite.material.opacity = 0.95;
         } else if (node.type === "domain") {
           data.labelSprite.material.opacity =
             VISUAL_CONFIG.labels.domainOpacity;
@@ -1921,6 +2949,7 @@
     const damping = VISUAL_CONFIG.layout.velocityDamping;
 
     graphData.nodes.forEach((node) => {
+      if (node.fx != null || node.fy != null || node.fz != null) return;
       if (
         !Number.isFinite(node.x) ||
         !Number.isFinite(node.y) ||
@@ -1974,6 +3003,7 @@
     performanceState.runningMs += dtMs;
 
     updateReplayAnimation(nowMs);
+    updateFlyInAnimation(nowMs);
     updatePerformanceBudget(dtMs);
     updateParticleBudget(false);
     updateAmbientMotion(dtMs);
@@ -2011,8 +3041,7 @@
 
   // ---- Fetch and initialization ----
   async function loadGraph() {
-    const res = await fetch("/api/graph");
-    graphData = await res.json();
+    graphData = await fetchGraphPayload();
     computeDerivedMetrics();
     let initOk = false;
     try {
@@ -2027,8 +3056,7 @@
   }
 
   async function loadHistory() {
-    const res = await fetch("/api/graph/history");
-    const data = await res.json();
+    const data = await fetchHistoryPayload();
     historyEvents = data.events || [];
 
     if (historyEvents.length > 0) {
@@ -2250,6 +3278,7 @@
 
   // ---- WebSocket ----
   function connectWS() {
+    if (mockState.enabled) return;
     const proto = location.protocol === "https:" ? "wss:" : "ws:";
     const ws = new WebSocket(`${proto}//${location.host}/ws`);
 
@@ -2268,33 +3297,200 @@
   function handleWSEvent(event) {
     if (!event) return;
 
+    if (event.type === "trace_arrived") {
+      handleTraceArrivedEvent(event);
+      return;
+    }
+
     if (
       event.type === "node_added" ||
       event.type === "node_updated" ||
       event.type === "step_recorded"
     ) {
-      refreshGraph().then(() => {
+      const sinceConvexMs =
+        performance.now() - realtimeState.lastConvexSignalMs;
+      if (
+        sinceConvexMs < VISUAL_CONFIG.realtime.convexSuppressFallbackMs &&
+        event.type !== "step_recorded"
+      ) {
+        return;
+      }
+
+      refreshGraphWithDiff().then((result) => {
         const node = findNodeFromEvent(event);
         spawnBurstAtNode(node);
+        const newTaskNode = result.addedTaskNodes[0] || null;
+        if (newTaskNode) enqueueIncomingNode(newTaskNode.id);
       });
     }
   }
 
-  // ---- Graph refresh ----
-  function refreshGraph() {
-    if (replayState.active) {
-      replayState.queuedRefresh = true;
-      return Promise.resolve();
+  function rememberTraceSignal(traceId) {
+    if (!traceId) return true;
+    if (realtimeState.seenTraceIds.has(traceId)) return false;
+
+    realtimeState.seenTraceIds.add(traceId);
+    realtimeState.seenTraceOrder.push(traceId);
+
+    while (
+      realtimeState.seenTraceOrder.length > VISUAL_CONFIG.realtime.seenTraceCap
+    ) {
+      const oldId = realtimeState.seenTraceOrder.shift();
+      if (oldId) realtimeState.seenTraceIds.delete(oldId);
     }
 
-    if (refreshPending) return Promise.resolve();
+    return true;
+  }
+
+  function animateNodeCounters(beforeCounts, afterCounts) {
+    if (afterCounts.realNodes > beforeCounts.realNodes) {
+      animateValueBetween(
+        dom.statRealNodes,
+        beforeCounts.realNodes,
+        afterCounts.realNodes,
+        420,
+        false,
+      );
+    }
+
+    if (afterCounts.tasks > beforeCounts.tasks) {
+      animateValueBetween(
+        dom.statTasks,
+        beforeCounts.tasks,
+        afterCounts.tasks,
+        420,
+        false,
+      );
+    }
+  }
+
+  function pickNewTaskNodeFromTrace(event, addedTaskNodes) {
+    if (!addedTaskNodes.length) return null;
+
+    if (event.task && event.domain) {
+      const exact = addedTaskNodes.find(
+        (node) => node.task === event.task && node.domain === event.domain,
+      );
+      if (exact) return exact;
+    }
+
+    if (event.domain) {
+      const byDomain = addedTaskNodes.find(
+        (node) => node.domain === event.domain,
+      );
+      if (byDomain) return byDomain;
+    }
+
+    return addedTaskNodes[0];
+  }
+
+  function flushPendingTraceEvents(result) {
+    if (!realtimeState.pendingTraceEvents.length) return;
+
+    const pendingEvents = realtimeState.pendingTraceEvents.splice(0);
+    animateNodeCounters(result.beforeCounts, result.afterCounts);
+
+    const remainingAddedTaskNodes = result.addedTaskNodes.slice();
+    pendingEvents.forEach((pendingEvent) => {
+      const node = findNodeFromEvent(pendingEvent);
+      spawnBurstAtNode(node);
+
+      const newTaskNode = pickNewTaskNodeFromTrace(
+        pendingEvent,
+        remainingAddedTaskNodes,
+      );
+      if (!newTaskNode) return;
+
+      enqueueIncomingNode(newTaskNode.id);
+      const idx = remainingAddedTaskNodes.findIndex(
+        (candidate) => candidate.id === newTaskNode.id,
+      );
+      if (idx >= 0) remainingAddedTaskNodes.splice(idx, 1);
+    });
+  }
+
+  async function handleTraceArrivedEvent(event) {
+    if (!rememberTraceSignal(event.trace_id || event.traceId || "")) return;
+    realtimeState.lastConvexSignalMs = performance.now();
+
+    if (flyInState.active) {
+      flyInState.queuedRefresh = true;
+      realtimeState.pendingTraceEvents.push(event);
+      return;
+    }
+
+    const result = await refreshGraphWithDiff();
+    animateNodeCounters(result.beforeCounts, result.afterCounts);
+
+    const node = findNodeFromEvent(event);
+    spawnBurstAtNode(node);
+
+    const newTaskNode = pickNewTaskNodeFromTrace(event, result.addedTaskNodes);
+    if (newTaskNode) {
+      enqueueIncomingNode(newTaskNode.id);
+    }
+  }
+
+  // ---- Graph refresh ----
+  function refreshGraphWithDiff() {
+    if (replayState.active) {
+      replayState.queuedRefresh = true;
+      return Promise.resolve({
+        addedNodes: [],
+        addedTaskNodes: [],
+        beforeCounts: {
+          realNodes: graphData.nodes.length,
+          tasks: graphData.nodes.filter((node) => node.type === "task").length,
+        },
+        afterCounts: {
+          realNodes: graphData.nodes.length,
+          tasks: graphData.nodes.filter((node) => node.type === "task").length,
+        },
+      });
+    }
+
+    if (flyInState.active) {
+      flyInState.queuedRefresh = true;
+      return Promise.resolve({
+        addedNodes: [],
+        addedTaskNodes: [],
+        beforeCounts: {
+          realNodes: graphData.nodes.length,
+          tasks: graphData.nodes.filter((node) => node.type === "task").length,
+        },
+        afterCounts: {
+          realNodes: graphData.nodes.length,
+          tasks: graphData.nodes.filter((node) => node.type === "task").length,
+        },
+      });
+    }
+
+    if (refreshPending) {
+      return Promise.resolve({
+        addedNodes: [],
+        addedTaskNodes: [],
+        beforeCounts: {
+          realNodes: graphData.nodes.length,
+          tasks: graphData.nodes.filter((node) => node.type === "task").length,
+        },
+        afterCounts: {
+          realNodes: graphData.nodes.length,
+          tasks: graphData.nodes.filter((node) => node.type === "task").length,
+        },
+      });
+    }
     refreshPending = true;
 
     return new Promise((resolve) => {
       setTimeout(async () => {
         try {
-          const res = await fetch("/api/graph");
-          const newData = await res.json();
+          const previousNodes = graphData.nodes.slice();
+          const previousNodeIds = new Set(previousNodes.map((node) => node.id));
+          const previousTaskCount = previousNodes.filter(
+            (node) => node.type === "task",
+          ).length;
+
+          const newData = await fetchGraphPayload();
 
           const posMap = {};
           graphData.nodes.forEach((node) => {
@@ -2340,12 +3536,54 @@
 
           scheduleAmbientRebuild(450);
           scheduleLabelUpdate();
+
+          const addedNodes = graphData.nodes.filter(
+            (node) => !previousNodeIds.has(node.id),
+          );
+          const addedTaskNodes = addedNodes.filter(
+            (node) => node.type === "task",
+          );
+          const currentTaskCount = graphData.nodes.filter(
+            (node) => node.type === "task",
+          ).length;
+
+          resolve({
+            addedNodes,
+            addedTaskNodes,
+            beforeCounts: {
+              realNodes: previousNodes.length,
+              tasks: previousTaskCount,
+            },
+            afterCounts: {
+              realNodes: graphData.nodes.length,
+              tasks: currentTaskCount,
+            },
+          });
+        } catch (err) {
+          console.error("Graph refresh failed:", err);
+          resolve({
+            addedNodes: [],
+            addedTaskNodes: [],
+            beforeCounts: {
+              realNodes: graphData.nodes.length,
+              tasks: graphData.nodes.filter((node) => node.type === "task")
+                .length,
+            },
+            afterCounts: {
+              realNodes: graphData.nodes.length,
+              tasks: graphData.nodes.filter((node) => node.type === "task")
+                .length,
+            },
+          });
         } finally {
           refreshPending = false;
-          resolve();
         }
       }, 260);
     });
+  }
+
+  function refreshGraph() {
+    return refreshGraphWithDiff().then(() => {});
   }
 
   // ---- Controls ----
@@ -2354,8 +3592,13 @@
     dom.btnSimulate.textContent = "RUNNING...";
 
     try {
-      await fetch("/api/simulate", { method: "POST" });
-      await refreshGraph();
+      if (mockState.enabled) {
+        const event = createMockTraceArrivalEvent();
+        if (event) await handleTraceArrivedEvent(event);
+      } else {
+        await fetch("/api/simulate", { method: "POST" });
+        await refreshGraph();
+      }
     } catch (err) {
       console.error("Simulate failed:", err);
     }
@@ -2369,6 +3612,11 @@
   }
 
   dom.chkAuto.addEventListener("change", async (evt) => {
+    if (mockState.enabled) {
+      setMockAutoSimulate(evt.target.checked);
+      return;
+    }
+
     const action = evt.target.checked ? "start" : "stop";
     await fetch(`/api/auto-simulate/${action}`, { method: "POST" });
   });
@@ -2489,6 +3737,12 @@
 
   // ---- Boot ----
   loadGraph().then(() => {
-    connectWS();
+    if (!mockState.enabled) {
+      connectWS();
+    }
+  });
+
+  window.addEventListener("beforeunload", () => {
+    if (mockState.enabled) setMockAutoSimulate(false);
   });
 })();

@@ -13,6 +13,7 @@ import json
 import logging
 import os
 import time
+import uuid
 from dataclasses import dataclass, field
 
 from lmnr import Laminar, LaminarClient
@@ -292,7 +293,7 @@ async def process_trace(
     Called from register_done_callback while inside the @observe() span.
     Falls back to history-based extraction if Laminar spans aren't available.
     """
-    from dombot.db import store_trace
+    from dombot.trace_ingest import ingest_trace
 
     # --- idempotency guard ---
     if trace_id and trace_id in _processed_trace_ids:
@@ -346,8 +347,10 @@ async def process_trace(
     success, partial = determine_run_success(trace_status, steps)
     canonical_domain = canonicalize_domain(domain) or domain
 
+    resolved_trace_id = trace_id or f"trace-{uuid.uuid4().hex}"
+
     trace = NormalizedTrace(
-        trace_id=trace_id or "unknown",
+        trace_id=resolved_trace_id,
         task=task,
         domain=canonical_domain,
         success=success,
@@ -355,26 +358,20 @@ async def process_trace(
         steps=steps,
     )
 
-    # --- handoff to Eric's store_trace ---
-    store_trace(
+    # --- handoff to shared ingest path (Mongo + Convex side-channel) ---
+    ingest_trace(
         task=trace.task,
         domain=trace.domain,
-        trace=[build_step_data(s) for s in trace.steps],
+        steps=[build_step_data(s) for s in trace.steps],
         success=trace.success,
+        partial=trace.partial,
+        trace_id=trace.trace_id,
     )
-
-    # --- log to Convex for real-time analytics ---
-    try:
-        from dombot.convex_logger import log_run_to_convex
-
-        log_run_to_convex(trace)
-    except Exception:
-        logger.debug("Convex log skipped", exc_info=True)
 
     status_label = "SUCCESS" if success else ("PARTIAL" if partial else "FAILED")
     logger.info(
         "Pipeline complete: %s | %d steps | trace_id=%s",
-        status_label, len(steps), trace_id,
+        status_label, len(steps), trace.trace_id,
     )
 
     return trace

@@ -112,6 +112,29 @@ DOMBOT_RUN_LIVE_DB_TESTS=1 python -m pytest tests/test_db_live.py -q -m live_db
 DOMBOT_RUN_UI_TESTS=1 python -m pytest tests/test_slipstream.py -q -m ui_dependent
 ```
 
+## Demo Graph Reset (Node CLI)
+
+If the graph looks sparse/noisy (for example mixed `www.*` and root domains or many zero-run tasks), rebuild deterministic demo data:
+
+```bash
+# start backend first
+./venv/bin/python -m uvicorn frontend.server:app --host 0.0.0.0 --port 8000
+
+# in another shell
+npm run demo:reseed -- --yes
+```
+
+Optional flags:
+
+```bash
+npm run demo:reseed -- --url=http://127.0.0.1:8000 --domains=10 --tasks-per-domain=100 --include-history=true --yes
+```
+
+The command calls:
+- `GET /api/admin/graph/stats`
+- `POST /api/admin/demo/reseed`
+- `GET /api/admin/graph/stats`
+
 ## Caching and Invalidation Strategy
 
 Slipstream uses a structural cache key:
