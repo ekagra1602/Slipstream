@@ -1,75 +1,71 @@
 # DomBot
 
-DomBot turns browser automation from fragile index-based clicks into a stable, semantic interface for AI agents.
+**A shared learning layer for browser automation agents.**
 
-At a high level, DomBot builds a structured **interaction map** of web pages (nodes, roles, names, selectors, fallbacks) and uses it to make agent actions faster, cheaper, and more resilient across runs.
+DomBot makes browser-use agents faster and more reliable by learning optimal action paths from every run. The first user fumbles through 72 steps. The 1000th user gets a pre-loaded 12-step path straight to the goal.
 
-## Why DomBot
+**Analogy:** Waze for web agents — every run makes the map better for everyone.
 
-Most browser agents rely on screenshots plus accessibility trees and then choose elements by transient indices (for example, "click element 47"). This breaks easily as UIs evolve.
+---
 
-DomBot introduces a stable layer:
+## How It Works
 
-- Named semantic nodes (for example, `checkout_primary_cta`)
-- Ranked selector fallbacks
-- Route-aware and structure-aware caching
-- Graceful degradation to baseline agent behavior
+DomBot registers as a tool inside browser-use. Before the LLM decides what to do, the agent calls DomBot to check if anyone has successfully completed a similar task before. If yes, the optimal path gets injected into the LLM's context. After each step, the agent reports what happened back to DomBot.
 
-Result: agents reason over meaning, not brittle element positions.
+```
+browser-use prepares DOM / screenshot / accessibility tree
+    |
+    v
+Agent calls dombot_query("buy macbook on walmart", "walmart.com")
+    |
+    v
+DomBot queries MongoDB (vector search on task embedding)
+    |-- hit  --> returns optimal actions from past successful runs
+    |-- miss --> returns nothing (agent proceeds normally)
+    |
+    v
+LLM decides next action (now informed by past runs)
+    |
+    v
+browser-use executes action
+    |
+    v
+Agent calls dombot_report(action, target, success)
+    |
+    v
+DomBot stores step data in MongoDB
+    |
+    v
+Repeat --> traces compound --> paths converge
+```
 
-## Core Concept
+### Over Time
 
-DomBot is designed as **middleware, not a tool command the agent must remember to call**.
+```
+Run 1:     72 steps, 3 wrong turns, eventually buys Macbook
+Run 100:   45 steps, different user, different mistakes
+Run 500:   optimal path emerges -- 12 steps, straight there
+Run 501:   new user gets the 12-step path pre-loaded. Done.
+```
 
-It sits between "observe page state" and "send context to LLM":
+---
 
-1. Observe page
-2. Build or fetch NodeMap
-3. Enrich LLM context with semantic nodes
-4. Agent plans action
-5. Executor uses preferred selector, then fallbacks if needed
+## Integration
 
-## What a Node Map Contains (MVP)
-
-Each interaction node includes:
-
-- Stable `node_id` (semantic intent key)
-- Role/tag (`button`, `input`, `link`, etc.)
-- Accessible name/text
-- Preferred selector (`data-testid`, id, role-based)
-- Ranked fallback selectors
-- Context hints (container, nearby text)
-- Allowed actions (`click`, `type`, `select`, ...)
-
-## Browser Agent Integration (browser-use style)
-
-Current loop:
-
-1. Screenshot + accessibility tree
-2. LLM picks element
-3. Executor performs action
-
-With DomBot:
-
-1. Screenshot + accessibility tree
-2. DomBot extracts or fetches NodeMap
-3. LLM receives page context + NodeMap and picks semantic node IDs
-4. Executor resolves selectors (preferred first, fallback next)
-5. Repeat
-
-Example integration shape:
+DomBot uses browser-use's `@controller.action` API — no monkey-patching, no subclassing:
 
 ```python
-from browser_use import Agent
-from dombot import DomBot
+from browser_use import Agent, Browser, Controller
+from dombot import register_dombot_tools
 
-dombot = DomBot(cache="local")  # or "shared"
+controller = Controller()
+register_dombot_tools(controller)
 
 agent = Agent(
-    task="complete checkout",
+    task="buy a macbook on walmart",
     llm=llm,
-    browser=browser,
-    observation_middleware=[dombot.enrich],
+    browser=Browser(use_cloud=True),
+    controller=controller,
 )
 ```
 
@@ -147,26 +143,3 @@ Near-term MVP target:
 ## One-Line Pitch
 
 DomBot turns every deploy into a versioned agent interface and a regression signal for agent reliability.
-
-## Trace-First POC
-
-This repo includes a minimal proof-of-concept for the trace memory loop in `poc/`.
-
-Build task memory nodes from sample traces:
-
-```bash
-python3 poc/trace_poc.py build \
-  --traces poc/sample_traces.json \
-  --out poc/task_nodes.json
-```
-
-Query a suggested plan for a new task:
-
-```bash
-python3 poc/trace_poc.py suggest \
-  --nodes poc/task_nodes.json \
-  --domain walmart.com \
-  --task "purchase a mac laptop from walmart"
-```
-
-The output shows the best-matching prior task and its learned `optimal_actions`.
