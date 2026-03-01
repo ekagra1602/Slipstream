@@ -14,11 +14,13 @@ import sys
 import urllib.error
 import urllib.request
 import uuid
+import time
+from collections import defaultdict
 from collections import deque
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -35,6 +37,26 @@ app = FastAPI(title="Slipstream Knowledge Graph")
 logger = logging.getLogger("frontend.server")
 
 STATIC_DIR = Path(__file__).resolve().parent
+
+# ---------------------------------------------------------------------------
+# Rate limiter — 10 requests per minute per IP for /api/chat
+# ---------------------------------------------------------------------------
+
+RATE_LIMIT = 10         # max requests
+RATE_WINDOW = 60        # per this many seconds
+_rate_buckets: dict[str, list[float]] = defaultdict(list)
+
+
+def _is_rate_limited(ip: str) -> bool:
+    now = time.time()
+    bucket = _rate_buckets[ip]
+    # Prune old entries
+    _rate_buckets[ip] = [t for t in bucket if now - t < RATE_WINDOW]
+    if len(_rate_buckets[ip]) >= RATE_LIMIT:
+        return True
+    _rate_buckets[ip].append(now)
+    return False
+
 
 # ---------------------------------------------------------------------------
 # WebSocket connection manager
@@ -1129,7 +1151,6 @@ def _build_local_insight_reply(message: str, metrics: dict, source_used: str) ->
 
 def _call_an_chat_api(full_message: str) -> str:
     global _an_sandbox_id, _an_thread_id
-
     body: dict = {
         "messages": [
             {
@@ -1193,7 +1214,18 @@ def _call_an_chat_api(full_message: str) -> str:
 
 
 @app.post("/api/chat")
-async def chat(payload: ChatPayload):
+async def chat(payload: ChatPayload, request: Request):
+    client_ip = request.client.host if request.client else "unknown"
+    if _is_rate_limited(client_ip):
+        return JSONResponse(
+            status_code=429,
+            content={
+                "reply": "Rate limit reached — max 10 questions per minute. Please wait.",
+                "sourceUsed": "none",
+                "relayUsed": False,
+            },
+        )
+
     message = payload.message.strip()
     if not message:
         return {"reply": "Please ask a question.", "sourceUsed": "none", "relayUsed": False}
